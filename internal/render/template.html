@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>{{.ClusterName}} · Flux Cluster Profile</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+  .poster{max-width:1600px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+
+  /* HEADER */
+  .header{display:grid;grid-template-columns:1fr auto;align-items:center;padding:20px 28px;
+    background:linear-gradient(135deg,#161b22 0%,#1c2431 100%);border:1px solid #30363d;
+    border-radius:12px;border-left:4px solid #58a6ff}
+  .header-left h1{font-size:28px;font-weight:700;color:#58a6ff;letter-spacing:-.5px}
+  .header-left h1 span{color:#e6edf3}
+  .subtitle{margin-top:6px;font-size:13px;color:#8b949e;display:flex;gap:20px;flex-wrap:wrap}
+  .subtitle span{display:flex;align-items:center;gap:5px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#3fb950;display:inline-block;
+    box-shadow:0 0 6px #3fb950;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .flux-badge{background:#21262d;border:1px solid #30363d;border-radius:20px;
+    padding:6px 14px;font-size:12px;color:#a5d6ff;display:flex;align-items:center;gap:6px}
+
+  /* FILTER BAR */
+  .filter-bar{background:#161b22;border:1px solid #30363d;border-radius:12px;
+    padding:14px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  .filter-label{font-size:11px;font-weight:700;text-transform:uppercase;
+    letter-spacing:1px;color:#8b949e;margin-right:4px}
+  .toggle-btn{display:flex;align-items:center;gap:7px;background:#21262d;border:1px solid #30363d;
+    border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;
+    transition:all .2s;user-select:none;color:#e6edf3}
+  .btn-dot{width:9px;height:9px;border-radius:50%;transition:background .2s}
+  .toggle-btn.active{border-color:var(--c);background:color-mix(in srgb,var(--c) 15%,#21262d)}
+  .toggle-btn.active .btn-dot{background:var(--c);box-shadow:0 0 5px var(--c)}
+  .toggle-btn:not(.active){opacity:.45}
+  .toggle-btn:not(.active) .btn-dot{background:#444c56}
+  .toggle-btn:hover{opacity:1!important}
+  .filter-sep{width:1px;height:24px;background:#30363d}
+  .reset-btn{margin-left:auto;background:#21262d;border:1px solid #30363d;border-radius:20px;
+    padding:6px 14px;font-size:11px;color:#7d8590;cursor:pointer;transition:all .15s}
+  .reset-btn:hover{color:#e6edf3;border-color:#58a6ff}
+  .search-box{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:7px 12px;
+    font-size:12px;color:#e6edf3;outline:none;width:200px;transition:border-color .2s}
+  .search-box:focus{border-color:#58a6ff}
+  .search-box::placeholder{color:#444c56}
+
+  /* FLUX CONTROLLERS */
+  .flux-components{display:flex;gap:10px;flex-wrap:wrap}
+  .flux-comp-chip{background:#161b22;border:1px solid #21d4a4;border-radius:20px;
+    padding:5px 14px;font-size:11px;color:#21d4a4;font-weight:600}
+  .flux-comp-chip.source{border-color:#58a6ff;color:#58a6ff}
+
+  /* SECTION WRAPPER */
+  .section-wrapper{transition:opacity .3s,max-height .4s;overflow:hidden;max-height:3000px}
+  .section-wrapper.hidden{opacity:0;max-height:0;pointer-events:none}
+
+  /* GRAPH */
+  .graph-section{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px}
+  .section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;
+    color:#8b949e;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .section-title::after{content:'';flex:1;height:1px;background:#30363d}
+  svg#graph{width:100%;display:block}
+  .legend{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px}
+  .legend-item{display:flex;align-items:center;gap:7px;font-size:12px;color:#8b949e}
+  .legend-dot{width:12px;height:12px;border-radius:3px}
+
+  /* LAYER CARDS */
+  .layers-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .layer-column{background:#161b22;border:1px solid #30363d;border-radius:12px;
+    padding:16px;display:flex;flex-direction:column;gap:8px;transition:opacity .3s}
+  .layer-column.infra{border-top:3px solid #f78166}
+  .layer-column.apps{border-top:3px solid #3fb950}
+  .layer-column.homerun{border-top:3px solid #d2a8ff}
+
+  .kust-card{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:10px 12px;
+    transition:border-color .2s,background .2s,opacity .3s,max-height .3s;cursor:default;
+    overflow:hidden;max-height:200px}
+  .kust-card:hover{border-color:#58a6ff;background:#1c2431}
+  .kust-card.hidden{opacity:0;max-height:0;padding:0;margin:0;border:0}
+  .kust-name{font-size:13px;font-weight:700;color:#e6edf3;display:flex;align-items:center;
+    justify-content:space-between;gap:8px}
+  .kust-version{font-size:10px;background:#0d1117;border:1px solid #30363d;border-radius:10px;
+    padding:1px 8px;color:#7d8590;white-space:nowrap}
+  .kust-path{font-size:10px;color:#8b949e;margin-top:4px;font-family:'Consolas',monospace}
+  .kust-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .kust-tag{font-size:10px;background:#0d1117;border-radius:4px;padding:2px 7px;
+    color:#7d8590;border:1px solid #21262d}
+  .kust-tag.dep{color:#f0883e;border-color:#f0883e44}
+  .kust-tag.domain{color:#58a6ff;border-color:#58a6ff44}
+
+  /* HOMERUN GRID */
+  .homerun-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:4px}
+  .homerun-comp{background:#21262d;border:1px solid #30363d;border-radius:6px;padding:8px 10px;
+    transition:border-color .2s,opacity .3s,max-height .3s;overflow:hidden;max-height:80px}
+  .homerun-comp:hover{border-color:#d2a8ff}
+  .homerun-comp.hidden{opacity:0;max-height:0;padding:0;border:0}
+  .comp-name{font-size:12px;font-weight:700;color:#d2a8ff}
+  .comp-version{font-size:10px;color:#7d8590;margin-top:2px;font-family:monospace}
+
+  /* GIT SOURCES */
+  .git-sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .git-repo-card{background:#161b22;border:1px solid #30363d;border-left:3px solid #58a6ff;
+    border-radius:8px;padding:12px 16px}
+  .repo-label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:#58a6ff;
+    font-weight:700;margin-bottom:4px}
+  .repo-url{font-size:12px;font-family:monospace;color:#8b949e;word-break:break-all}
+  .repo-branch{margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:11px;
+    color:#3fb950;background:#0d1117;border-radius:10px;padding:2px 10px;border:1px solid #3fb95044}
+
+  /* DETAIL PANEL */
+  #detail-panel{position:fixed;top:80px;right:20px;width:300px;background:#161b22;
+    border:1px solid #58a6ff;border-radius:12px;padding:16px;z-index:100;
+    box-shadow:0 8px 32px #00000088;display:none;animation:slideIn .2s ease}
+  @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+  #detail-panel h4{color:#58a6ff;font-size:14px;margin-bottom:10px;border-bottom:1px solid #30363d;padding-bottom:8px}
+  .dp-row{display:flex;gap:8px;margin-bottom:6px;font-size:12px}
+  .dp-key{color:#7d8590;min-width:80px}
+  .dp-val{color:#e6edf3;font-family:monospace;font-size:11px;word-break:break-all}
+  .dp-sub{margin-top:8px;padding-top:8px;border-top:1px solid #30363d}
+  .dp-sub-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#7d8590;margin-bottom:4px}
+  .dp-sub-item{font-size:10px;font-family:monospace;color:#8b949e;margin-bottom:2px;display:flex;gap:6px}
+  .dp-sub-key{color:#58a6ff}
+  #detail-close{position:absolute;top:10px;right:12px;cursor:pointer;color:#7d8590;font-size:16px;line-height:1}
+  #detail-close:hover{color:#e6edf3}
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <h1>{{.ClusterName}} <span>· Flux Cluster Profile</span></h1>
+      <div class="subtitle">
+        <span><span class="dot"></span> {{.ClusterPath}}</span>
+        {{if .FluxInstance}}<span>⚡ FluxCD v{{.FluxInstance.Version}}</span>{{end}}
+        {{if .FluxInstance}}<span>🔀 {{.FluxInstance.SyncURL}}</span>{{end}}
+        {{if .FluxInstance}}<span>📂 {{.FluxInstance.SyncPath}}</span>{{end}}
+      </div>
+    </div>
+    <div class="header-right">
+      {{if .FluxInstance}}<div class="flux-badge">⚡ FluxCD v{{.FluxInstance.Version}}</div>{{end}}
+      {{if .FluxSops}}<div class="flux-badge">🔐 SOPS Age Decryption</div>{{end}}
+      <div class="flux-badge">📦 {{len .Kustomizations}} Kustomizations</div>
+      <div class="flux-badge">🌿 {{len .GitRepos}} Git Sources</div>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <span class="filter-label">Layers</span>
+    {{if .HasSources}}<button class="toggle-btn active" style="--c:#ffa657" onclick="toggleLayer('sources',this)"><span class="btn-dot"></span> Git Sources</button>{{end}}
+    {{if .HasControllers}}<button class="toggle-btn active" style="--c:#21d4a4" onclick="toggleLayer('controllers',this)"><span class="btn-dot"></span> Flux Controllers</button>{{end}}
+    {{if .HasInfra}}<button class="toggle-btn active" style="--c:#f78166" onclick="toggleLayer('infra',this)"><span class="btn-dot"></span> Infrastructure</button>{{end}}
+    {{if .HasApps}}<button class="toggle-btn active" style="--c:#3fb950" onclick="toggleLayer('apps',this)"><span class="btn-dot"></span> Applications</button>{{end}}
+    {{if .HasHomerun}}<button class="toggle-btn active" style="--c:#d2a8ff" onclick="toggleLayer('homerun',this)"><span class="btn-dot"></span> Homerun2 Stack</button>{{end}}
+    <div class="filter-sep"></div>
+    <span class="filter-label">View</span>
+    <button class="toggle-btn active" style="--c:#58a6ff" onclick="toggleLayer('graph',this)"><span class="btn-dot"></span> Dependency Graph</button>
+    <button class="toggle-btn active" style="--c:#58a6ff" onclick="toggleLayer('cards',this)"><span class="btn-dot"></span> Detail Cards</button>
+    <div class="filter-sep"></div>
+    <input class="search-box" id="node-search" placeholder="🔍 Search…" oninput="searchNodes(this.value)"/>
+    <button class="reset-btn" onclick="resetAll()">↺ Reset</button>
+  </div>
+
+  <!-- FLUX CONTROLLERS -->
+  {{if .FluxInstance}}
+  <div class="section-wrapper" id="section-controllers">
+    <div class="section-title">Flux Controllers</div>
+    <div class="flux-components">
+      {{range .FluxInstance.Components}}<div class="flux-comp-chip">{{.}}</div>{{end}}
+    </div>
+  </div>
+  {{end}}
+
+  <!-- GIT SOURCES -->
+  {{if .GitRepos}}
+  <div class="section-wrapper" id="section-sources">
+    <div class="section-title">Git Sources</div>
+    <div class="git-sources">
+      {{range .GitRepos}}
+      <div class="git-repo-card">
+        <div class="repo-label">{{.Name}}</div>
+        <div class="repo-url">{{.URL}}</div>
+        <div class="repo-branch">⎇ {{.Branch}} · interval {{.Interval}}</div>
+      </div>
+      {{end}}
+      {{if .FluxInstance}}
+      <div class="git-repo-card">
+        <div class="repo-label">sync root</div>
+        <div class="repo-url">{{.FluxInstance.SyncURL}}</div>
+        <div class="repo-branch">⎇ {{.FluxInstance.SyncRef}} · path: {{.FluxInstance.SyncPath}}</div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+
+  <!-- DEPENDENCY GRAPH -->
+  <div class="section-wrapper" id="section-graph">
+    <div class="graph-section">
+      <div class="section-title">Kustomization Dependency Graph
+        <span style="font-size:11px;color:#8b949e;font-weight:400;text-transform:none;letter-spacing:0">
+          — click node for details · hover to highlight edges
+        </span>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#f78166"></div>Infrastructure</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>Apps</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d2a8ff"></div>Homerun2</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>Profiles</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffa657"></div>Git Source</div>
+        <div class="legend-item">
+          <svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="#f0883e" stroke-width="1.5" stroke-dasharray="4,2"/></svg>
+          dependsOn
+        </div>
+      </div>
+      <svg id="graph"></svg>
+    </div>
+  </div>
+
+  <!-- LAYER CARDS -->
+  <div class="section-wrapper" id="section-cards">
+    <div class="layers-grid">
+
+      <!-- INFRA -->
+      {{if .HasInfra}}
+      <div class="layer-column infra" id="col-infra">
+        <div class="section-title" style="color:#f78166">Infrastructure</div>
+        {{range .InfraKustomizations}}
+        <div class="kust-card" data-name="{{.Name}}" data-layer="infra">
+          <div class="kust-name">{{.Name}} {{if .Version}}<span class="kust-version">{{.Version}}</span>{{end}}</div>
+          <div class="kust-path">{{.Path}}</div>
+          <div class="kust-meta">
+            {{range .DependsOn}}<span class="kust-tag dep">→ {{.}}</span>{{end}}
+            {{if .Domain}}<span class="kust-tag domain">{{.Domain}}</span>{{end}}
+          </div>
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+
+      <!-- APPS -->
+      {{if .HasApps}}
+      <div class="layer-column apps" id="col-apps">
+        <div class="section-title" style="color:#3fb950">Applications</div>
+        {{range .AppKustomizations}}
+        <div class="kust-card" data-name="{{.Name}}" data-layer="apps">
+          <div class="kust-name">{{.Name}} {{if .Version}}<span class="kust-version">{{.Version}}</span>{{end}}</div>
+          <div class="kust-path">{{.Path}}</div>
+          <div class="kust-meta">
+            {{range .DependsOn}}<span class="kust-tag dep">→ {{.}}</span>{{end}}
+            {{if .Domain}}<span class="kust-tag domain">{{.Domain}}</span>{{end}}
+          </div>
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+
+      <!-- HOMERUN2 / PROFILES / OTHER -->
+      {{if .HasHomerun}}
+      <div class="layer-column homerun" id="col-homerun">
+        <div class="section-title" style="color:#d2a8ff">Homerun2 / Profiles</div>
+        {{range .HomerunKustomizations}}
+        <div class="kust-card" data-name="{{.Name}}" data-layer="homerun">
+          <div class="kust-name">{{.Name}} {{if .Version}}<span class="kust-version">{{.Version}}</span>{{end}}</div>
+          <div class="kust-path">{{.Path}}</div>
+          <div class="kust-meta">
+            {{range .DependsOn}}<span class="kust-tag dep">→ {{.}}</span>{{end}}
+            {{if .Domain}}<span class="kust-tag domain">{{.Domain}}</span>{{end}}
+          </div>
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div id="detail-panel">
+  <span id="detail-close" onclick="document.getElementById('detail-panel').style.display='none'">✕</span>
+  <h4 id="dp-title">—</h4>
+  <div id="dp-body"></div>
+</div>
+
+<script>
+/* ═══════════ DATA (injected by Go template) ═══════════ */
+const GRAPH_DATA = {{.GraphDataJSON}};
+
+/* ═══════════ COLORS ═══════════ */
+const COLORS = {
+  infra:    "#f78166",
+  apps:     "#3fb950",
+  homerun2: "#d2a8ff",
+  profile:  "#58a6ff",
+  source:   "#ffa657",
+};
+
+/* ═══════════ LAYER STATE ═══════════ */
+const layerState = {sources:true,controllers:true,infra:true,apps:true,homerun:true,graph:true,cards:true};
+const typeToLayer = {source:"sources",infra:"infra",apps:"apps",homerun2:"homerun",profile:"homerun"};
+
+function toggleLayer(layer, btn) {
+  layerState[layer] = !layerState[layer];
+  btn.classList.toggle("active", layerState[layer]);
+  const secMap = {graph:"section-graph",cards:"section-cards",controllers:"section-controllers",sources:"section-sources"};
+  if (secMap[layer]) {
+    document.getElementById(secMap[layer])?.classList.toggle("hidden", !layerState[layer]);
+    return;
+  }
+  updateGraph();
+  const colMap = {infra:"col-infra",apps:"col-apps",homerun:"col-homerun"};
+  if (colMap[layer]) document.getElementById(colMap[layer]).style.opacity = layerState[layer] ? "1" : "0.2";
+}
+
+function resetAll() {
+  Object.keys(layerState).forEach(k => layerState[k] = true);
+  document.querySelectorAll(".toggle-btn").forEach(b => b.classList.add("active"));
+  document.querySelectorAll(".section-wrapper").forEach(s => s.classList.remove("hidden"));
+  ["col-infra","col-apps","col-homerun"].forEach(id => { const el = document.getElementById(id); if(el) el.style.opacity="1"; });
+  document.getElementById("node-search").value = "";
+  updateGraph();
+  clearSearch();
+}
+
+/* ═══════════ SEARCH ═══════════ */
+function searchNodes(q) {
+  q = q.toLowerCase().trim();
+  document.querySelectorAll(".kust-card,.homerun-comp").forEach(el => {
+    const match = !q || el.innerText.toLowerCase().includes(q) || (el.dataset.name||"").toLowerCase().includes(q);
+    el.style.opacity = match ? "" : "0.15";
+  });
+  highlightGraphNodes(q);
+  if (!q) clearSearch();
+}
+function clearSearch() {
+  document.querySelectorAll(".kust-card,.homerun-comp").forEach(el => el.style.opacity = "");
+  highlightGraphNodes("");
+}
+
+/* ═══════════ D3 GRAPH ═══════════ */
+const nodes = GRAPH_DATA.nodes;
+const edges = GRAPH_DATA.edges;
+const nodeMap = {};
+nodes.forEach(n => nodeMap[n.id] = n);
+
+const SVG_W = 1540;
+const ROW_H = 110;
+const NODE_W = 140;
+const NODE_H = 52;
+const PAD_X = 50;
+
+// Calculate columns per layer
+const layerNodes = {};
+nodes.forEach(n => { (layerNodes[n.layer] = layerNodes[n.layer]||[]).push(n); });
+const maxLayer = Math.max(...nodes.map(n => n.layer));
+// Assign x positions spread evenly per layer
+nodes.forEach(n => {
+  const siblings = layerNodes[n.layer];
+  const totalW = SVG_W - PAD_X * 2;
+  const step = totalW / Math.max(siblings.length, 1);
+  const idx = siblings.indexOf(n);
+  n._x = PAD_X + step * idx + step / 2;
+  n._y = 30 + n.layer * ROW_H + NODE_H / 2;
+});
+
+const totalH = 30 + (maxLayer + 1) * ROW_H + 20;
+const svg = d3.select("#graph").attr("viewBox", `0 0 ${SVG_W} ${totalH}`).attr("height", Math.min(totalH, 650));
+
+const defs = svg.append("defs");
+["watches","dependsOn"].forEach(kind => {
+  defs.append("marker").attr("id",`arrow-${kind}`)
+    .attr("viewBox","0 -5 10 10").attr("refX",10).attr("refY",0)
+    .attr("markerWidth",6).attr("markerHeight",6).attr("orient","auto")
+    .append("path").attr("d","M0,-5L10,0L0,5")
+    .attr("fill", kind==="dependsOn" ? "#f0883e" : "#444c56");
+});
+
+// Layer bands
+const bandColors = ["#161b22","#161b22","#1a2130","#1a2130","#1c1f2e","#1a1f2e","#1c1f2e"];
+for (let l = 0; l <= maxLayer; l++) {
+  svg.append("rect").attr("x",0).attr("y",30+l*ROW_H-8)
+    .attr("width",SVG_W).attr("height",ROW_H)
+    .attr("fill",bandColors[l]||"#161b22").attr("opacity",0.6);
+}
+
+// Edges
+const edgePaths = svg.append("g").selectAll("path").data(edges).join("path")
+  .attr("class", d => `edge edge-${d.kind}`)
+  .attr("d", d => {
+    const s = nodeMap[d.s], t = nodeMap[d.t];
+    if (!s||!t) return "";
+    const x1=s._x, y1=s._y+NODE_H/2-2, x2=t._x, y2=t._y-NODE_H/2+2;
+    const my=(y1+y2)/2;
+    return `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`;
+  })
+  .attr("fill","none")
+  .attr("stroke", d => d.kind==="dependsOn" ? "#f0883e" : "#30363d")
+  .attr("stroke-width", d => d.kind==="dependsOn" ? 1.5 : 1)
+  .attr("stroke-dasharray", d => d.kind==="dependsOn" ? "5,3" : "none")
+  .attr("opacity", d => d.kind==="dependsOn" ? 0.9 : 0.5)
+  .attr("marker-end", d => `url(#arrow-${d.kind})`);
+
+// Node groups
+const nodeGs = svg.append("g").selectAll("g").data(nodes).join("g")
+  .attr("transform", d => `translate(${d._x},${d._y})`)
+  .attr("data-id", d => d.id)
+  .style("cursor","pointer")
+  .on("click", (_, d) => showDetail(d))
+  .on("mouseover", function(_, d) {
+    d3.select(this).select("rect").attr("fill","#2d333b").attr("stroke-width",2.5);
+    edgePaths.attr("opacity", e => (e.s===d.id||e.t===d.id) ? 1 : 0.05);
+  })
+  .on("mouseout", function(_, d) {
+    d3.select(this).select("rect").attr("fill","#21262d").attr("stroke-width",1.5);
+    edgePaths.attr("opacity", e => e.kind==="dependsOn" ? 0.9 : 0.5);
+  });
+
+nodeGs.append("rect")
+  .attr("x",-NODE_W/2).attr("y",-NODE_H/2).attr("width",NODE_W).attr("height",NODE_H).attr("rx",7)
+  .attr("fill","#21262d").attr("stroke", d => COLORS[d.type]||"#58a6ff").attr("stroke-width",1.5);
+
+nodeGs.each(function(d) {
+  const g = d3.select(this);
+  const words = d.id.split(/[-_]/);
+  const lines = words.length > 2 ? [words.slice(0,Math.ceil(words.length/2)).join("-"), words.slice(Math.ceil(words.length/2)).join("-")] : [d.id];
+  if (lines.length===1) {
+    g.append("text").attr("y",-4).attr("text-anchor","middle").attr("font-size",11).attr("font-weight","700")
+      .attr("fill",COLORS[d.type]).attr("font-family","Segoe UI,sans-serif").text(lines[0]);
+  } else {
+    lines.forEach((line,i) => {
+      g.append("text").attr("y",-10+i*13).attr("text-anchor","middle").attr("font-size",10).attr("font-weight","700")
+        .attr("fill",COLORS[d.type]).attr("font-family","Segoe UI,sans-serif").text(line);
+    });
+  }
+  g.append("text").attr("y", lines.length>1 ? 17 : 11).attr("text-anchor","middle")
+    .attr("font-size",9).attr("fill","#7d8590").attr("font-family","Consolas,monospace")
+    .text(d.sub||d.type);
+});
+
+function updateGraph() {
+  nodeGs.each(function(d) {
+    const visible = isVisible(d);
+    d3.select(this).transition().duration(250).attr("opacity", visible?1:0).style("pointer-events", visible?"auto":"none");
+  });
+  edgePaths.each(function(e) {
+    const sv = isVisible(nodeMap[e.s]), tv = isVisible(nodeMap[e.t]);
+    d3.select(this).transition().duration(250).attr("opacity", (sv&&tv)?(e.kind==="dependsOn"?0.9:0.5):0);
+  });
+}
+
+function isVisible(n) {
+  if (!n) return false;
+  const lyr = typeToLayer[n.type];
+  return lyr ? layerState[lyr] : true;
+}
+
+function highlightGraphNodes(q) {
+  nodeGs.each(function(d) {
+    d3.select(this).transition().duration(200).attr("opacity", !q?1:d.id.toLowerCase().includes(q)?1:0.08);
+  });
+  edgePaths.each(function(e) {
+    const sm = !q||e.s.toLowerCase().includes(q), tm = !q||e.t.toLowerCase().includes(q);
+    d3.select(this).transition().duration(200).attr("opacity", !q?(e.kind==="dependsOn"?0.9:0.5):(sm||tm)?1:0.04);
+  });
+}
+
+/* ═══════════ DETAIL PANEL ═══════════ */
+function showDetail(d) {
+  document.getElementById("dp-title").textContent = d.id;
+  const rows = [
+    ["Layer",    d.type],
+    ["Source",   d.source||"–"],
+    ["Path",     d.path||"–"],
+    ["Version",  d.version||"–"],
+    ["Interval", d.interval||"–"],
+    ["Domain",   d.domain||"–"],
+    ["DependsOn",d.dependsOn?.join(", ")||"–"],
+  ];
+  let html = rows.map(([k,v]) =>
+    `<div class="dp-row"><span class="dp-key">${k}</span><span class="dp-val">${v}</span></div>`
+  ).join("");
+  if (d.substitute && Object.keys(d.substitute).length) {
+    html += `<div class="dp-sub"><div class="dp-sub-title">Substitutions</div>`;
+    const entries = Object.entries(d.substitute);
+    const show = entries.slice(0,8);
+    show.forEach(([k,v]) => {
+      html += `<div class="dp-sub-item"><span class="dp-sub-key">${k}</span><span>${v.length>30?v.slice(0,30)+"…":v}</span></div>`;
+    });
+    if (entries.length > 8) html += `<div style="font-size:10px;color:#444c56">+${entries.length-8} more…</div>`;
+    html += `</div>`;
+  }
+  document.getElementById("dp-body").innerHTML = html;
+  document.getElementById("detail-panel").style.display = "block";
+}
+</script>
+</body>
+</html>

@@ -24,6 +24,28 @@ type kustCard struct {
 	DependsOn []string
 }
 
+type argoAppCard struct {
+	Name     string
+	Project  string
+	RepoURL  string
+	Path     string
+	Revision string
+	DestNS   string
+}
+
+type argoAppSetCard struct {
+	Name     string
+	Project  string
+	RepoURL  string
+	Paths    string
+	Revision string
+}
+
+type argoProjectCard struct {
+	Name        string
+	Description string
+}
+
 type gitRepoCard struct {
 	Name     string
 	URL      string
@@ -59,6 +81,14 @@ type templateData struct {
 	HasInfra       bool
 	HasApps        bool
 	HasHomerun     bool
+
+	// ArgoCD-specific
+	ArgoProjects    []argoProjectCard
+	ArgoAppSets     []argoAppSetCard
+	ArgoApps        []argoAppCard
+	HasArgoProjects bool
+	HasArgoAppSets  bool
+	HasArgoApps     bool
 }
 
 // WriteHTML renders the cluster profile as a standalone HTML page to w.
@@ -102,6 +132,26 @@ func buildTemplateData(profile *graph.ClusterProfile, graphJSON template.JS) tem
 			c := nodeToCard(n)
 			td.Kustomizations = append(td.Kustomizations, c)
 			td.HomerunKustomizations = append(td.HomerunKustomizations, c)
+		case "argoproject":
+			td.ArgoProjects = append(td.ArgoProjects, argoProjectCard{
+				Name:        n.ID,
+				Description: n.Sub,
+			})
+		case "argoappset":
+			td.ArgoAppSets = append(td.ArgoAppSets, argoAppSetCard{
+				Name:     n.ID,
+				RepoURL:  n.Source,
+				Paths:    n.Sub,
+				Revision: n.Version,
+			})
+		case "argoapp":
+			td.ArgoApps = append(td.ArgoApps, argoAppCard{
+				Name:     n.ID,
+				RepoURL:  n.Source,
+				Path:     n.Path,
+				Revision: n.Version,
+				DestNS:   n.Domain,
+			})
 		default:
 			c := nodeToCard(n)
 			td.Kustomizations = append(td.Kustomizations, c)
@@ -122,6 +172,9 @@ func buildTemplateData(profile *graph.ClusterProfile, graphJSON template.JS) tem
 	td.HasInfra = len(td.InfraKustomizations) > 0
 	td.HasApps = len(td.AppKustomizations) > 0
 	td.HasHomerun = len(td.HomerunKustomizations) > 0
+	td.HasArgoProjects = len(td.ArgoProjects) > 0
+	td.HasArgoAppSets = len(td.ArgoAppSets) > 0
+	td.HasArgoApps = len(td.ArgoApps) > 0
 
 	if profile.Technology == "flux" {
 		fi := &fluxInstanceData{

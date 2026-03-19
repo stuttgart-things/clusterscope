@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/stuttgart-things/clusterscope/internal/render"
+	"github.com/stuttgart-things/clusterscope/internal/scan"
 	"github.com/stuttgart-things/clusterscope/internal/serve"
 	"github.com/stuttgart-things/clusterscope/pkg/argocd"
 	"github.com/stuttgart-things/clusterscope/pkg/flux"
@@ -62,8 +63,63 @@ Examples:
 	}
 
 	// ── Static render mode ────────────────────────────────────────────────────
-	var profile interface { /* graph.ClusterProfile */
+
+	// Multi-cluster mode: -root given without -serve
+	if *root != "." && *dir == "." {
+		outDir := *out
+		if outDir == "" {
+			outDir = "."
+		}
+		if err := os.MkdirAll(outDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "error creating output dir: %v\n", err)
+			os.Exit(1)
+		}
+		clusters, err := scan.Root(*root)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error scanning root: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Write per-cluster HTML files
+		for _, c := range clusters {
+			if c.Err != nil || c.Profile == nil {
+				fmt.Fprintf(os.Stderr, "skip %s: %v\n", c.Name, c.Err)
+				continue
+			}
+			clusterFile := filepath.Join(outDir, c.Name+".html")
+			f, err := os.Create(clusterFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error creating %s: %v\n", clusterFile, err)
+				continue
+			}
+			if err := render.WriteHTML(f, c.Profile); err != nil {
+				fmt.Fprintf(os.Stderr, "error rendering %s: %v\n", c.Name, err)
+			}
+			_ = f.Close()
+			fmt.Fprintf(os.Stderr, "✓ %s → %s\n", c.Name, clusterFile)
+		}
+
+		// Write index.html
+		indexFile := filepath.Join(outDir, "index.html")
+		idxClusters := make([]render.IndexCluster, len(clusters))
+		for i, c := range clusters {
+			idxClusters[i] = render.IndexCluster{Name: c.Name, Profile: c.Profile, Err: c.Err}
+		}
+		fi, err := os.Create(indexFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error creating index.html: %v\n", err)
+			os.Exit(1)
+		}
+		if err := render.WriteIndex(fi, idxClusters); err != nil {
+			fmt.Fprintf(os.Stderr, "error rendering index: %v\n", err)
+		}
+		_ = fi.Close()
+		fmt.Fprintf(os.Stderr, "✓ index.html → %s\n", indexFile)
+		return
 	}
+
+	// Single-cluster mode
+	var profile interface{} //nolint:unused
 	_ = profile
 
 	switch *tech {

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>{{.ClusterName}} · Flux Cluster Profile</title>
+<title>{{.ClusterName}} · clusterscope</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -23,6 +23,8 @@
   .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
   .flux-badge{background:#21262d;border:1px solid #30363d;border-radius:20px;
     padding:6px 14px;font-size:12px;color:#a5d6ff;display:flex;align-items:center;gap:6px}
+  .flux-badge.argocd{border-color:#34d399;color:#34d399}
+  .flux-badge.mixed{border-color:#d2a8ff;color:#d2a8ff}
 
   /* FILTER BAR */
   .filter-bar{background:#161b22;border:1px solid #30363d;border-radius:12px;
@@ -193,7 +195,7 @@
   <!-- HEADER -->
   <div class="header">
     <div class="header-left">
-      <h1>{{.ClusterName}} <span>· Flux Cluster Profile</span></h1>
+      <h1>{{.ClusterName}} <span>· cluster profile</span></h1>
       <div class="subtitle">
         <span><span class="dot"></span> {{.ClusterPath}}</span>
         {{if .FluxInstance}}<span>⚡ FluxCD v{{.FluxInstance.Version}}</span>{{end}}
@@ -202,10 +204,19 @@
       </div>
     </div>
     <div class="header-right">
-      {{if .FluxInstance}}<div class="flux-badge">⚡ FluxCD v{{.FluxInstance.Version}}</div>{{end}}
-      {{if .FluxSops}}<div class="flux-badge">🔐 SOPS Age Decryption</div>{{end}}
-      <div class="flux-badge">📦 {{len .Kustomizations}} Kustomizations</div>
-      <div class="flux-badge">🌿 {{len .GitRepos}} Git Sources</div>
+      {{if eq .Technology "flux"}}
+        {{if .FluxInstance}}<div class="flux-badge">⚡ FluxCD v{{.FluxInstance.Version}}</div>{{end}}
+        {{if .FluxSops}}<div class="flux-badge">🔐 SOPS Age Decryption</div>{{end}}
+        <div class="flux-badge">📦 {{len .Kustomizations}} Kustomizations</div>
+        <div class="flux-badge">🌿 {{len .GitRepos}} Git Sources</div>
+      {{else if eq .Technology "argocd"}}
+        <div class="flux-badge argocd">🐙 ArgoCD</div>
+        {{if .HasArgoProjects}}<div class="flux-badge argocd">📁 {{len .ArgoProjects}} Projects</div>{{end}}
+        {{if .HasArgoAppSets}}<div class="flux-badge argocd">🔗 {{len .ArgoAppSets}} ApplicationSets</div>{{end}}
+        {{if .HasArgoApps}}<div class="flux-badge argocd">📦 {{len .ArgoApps}} Applications</div>{{end}}
+      {{else}}
+        <div class="flux-badge mixed">🔀 Mixed GitOps</div>
+      {{end}}
       <button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
     </div>
   </div>
@@ -214,10 +225,13 @@
   <div class="filter-bar">
     <span class="filter-label">Layers</span>
     {{if .HasSources}}<button class="toggle-btn active" style="--c:#ffa657" onclick="toggleLayer('sources',this)"><span class="btn-dot"></span> Git Sources</button>{{end}}
-    {{if .HasControllers}}<button class="toggle-btn active" style="--c:#21d4a4" onclick="toggleLayer('controllers',this)"><span class="btn-dot"></span> Flux Controllers</button>{{end}}
+    {{if .HasControllers}}<button class="toggle-btn active" style="--c:#21d4a4" onclick="toggleLayer('controllers',this)"><span class="btn-dot"></span>{{if eq .Technology "argocd"}} ArgoCD Controllers{{else}} Flux Controllers{{end}}</button>{{end}}
     {{if .HasInfra}}<button class="toggle-btn active" style="--c:#f78166" onclick="toggleLayer('infra',this)"><span class="btn-dot"></span> Infrastructure</button>{{end}}
     {{if .HasApps}}<button class="toggle-btn active" style="--c:#3fb950" onclick="toggleLayer('apps',this)"><span class="btn-dot"></span> Applications</button>{{end}}
     {{if .HasHomerun}}<button class="toggle-btn active" style="--c:#d2a8ff" onclick="toggleLayer('homerun',this)"><span class="btn-dot"></span> Homerun2 Stack</button>{{end}}
+    {{if .HasArgoProjects}}<button class="toggle-btn active" style="--c:#60a5fa" onclick="toggleLayer('argoproject',this)"><span class="btn-dot"></span> Projects</button>{{end}}
+    {{if .HasArgoAppSets}}<button class="toggle-btn active" style="--c:#34d399" onclick="toggleLayer('argoappset',this)"><span class="btn-dot"></span> ApplicationSets</button>{{end}}
+    {{if .HasArgoApps}}<button class="toggle-btn active" style="--c:#a78bfa" onclick="toggleLayer('argoapp',this)"><span class="btn-dot"></span> Applications</button>{{end}}
     <div class="filter-sep"></div>
     <span class="filter-label">View</span>
     <button class="toggle-btn active" style="--c:#58a6ff" onclick="toggleLayer('graph',this)"><span class="btn-dot"></span> Dependency Graph</button>

@@ -1,0 +1,31 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: clusterscope
+  title: clusterscope
+  description: Technology-agnostic GitOps cluster visualizer CLI + server (Flux & ArgoCD)
+  annotations:
+    github.com/project-slug: stuttgart-things/clusterscope
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - go
+    - gitops
+    - flux
+    - argocd
+    - kubernetes
+    - visualization
+    - cli
+    - platform-engineering
+  links:
+    - url: https://stuttgart-things.github.io/clusterscope/
+      title: Documentation
+      icon: docs
+    - url: https://github.com/stuttgart-things/clusterscope/releases
+      title: Releases
+      icon: github
+spec:
+  type: tool
+  lifecycle: production
+  owner: group:default/stuttgart-things
+  system: platform-engineering

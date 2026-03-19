@@ -134,6 +134,18 @@ tasks:
       - echo "Dashboard generated at {{ .OUT }}/index.html"
       - 'echo "Open with: xdg-open {{ .OUT }}/index.html"'
 
+  docs-serve:
+    desc: Serve MkDocs documentation locally
+    cmds:
+      - pip install mkdocs-material --quiet
+      - mkdocs serve
+
+  docs-build:
+    desc: Build MkDocs documentation to site/
+    cmds:
+      - pip install mkdocs-material --quiet
+      - mkdocs build
+
   trigger-release:
     desc: Trigger Release workflow on GitHub Actions
     cmds:

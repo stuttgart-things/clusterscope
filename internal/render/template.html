@@ -20,6 +20,14 @@
   .dot{width:8px;height:8px;border-radius:50%;background:#3fb950;display:inline-block;
     box-shadow:0 0 6px #3fb950;animation:pulse 2s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  /* Live status indicator dots on graph nodes */
+  .status-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .status-dot.ready{background:#3fb950;box-shadow:0 0 5px #3fb95099}
+  .status-dot.failed{background:#f85149;box-shadow:0 0 5px #f8514999;animation:pulse 1s infinite}
+  .status-dot.progressing{background:#f0883e;box-shadow:0 0 5px #f0883e99;animation:pulse 1.5s infinite}
+  .status-dot.unknown{background:#444c56}
+  .live-badge{background:#0d2b1a;border:1px solid #3fb95066;border-radius:20px;
+    padding:4px 12px;font-size:11px;color:#3fb950;display:flex;align-items:center;gap:5px}
   .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
   .flux-badge{background:#21262d;border:1px solid #30363d;border-radius:20px;
     padding:6px 14px;font-size:12px;color:#a5d6ff;display:flex;align-items:center;gap:6px}
@@ -218,6 +226,7 @@
         <div class="flux-badge mixed">🔀 Mixed GitOps</div>
       {{end}}
       <button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+      {{if .LiveRefreshed}}<div class="live-badge">🟢 Live · {{.LiveRefreshed}}</div>{{end}}
     </div>
   </div>
 
@@ -553,7 +562,12 @@ const nodeGs = svg.append("g").selectAll("g").data(nodes).join("g")
 
 nodeGs.append("rect")
   .attr("x",-NODE_W/2).attr("y",-NODE_H/2).attr("width",NODE_W).attr("height",NODE_H).attr("rx",7)
-  .attr("fill","#21262d").attr("stroke", d => COLORS[d.type]||"#58a6ff").attr("stroke-width",1.5);
+  .attr("fill","#21262d").attr("stroke", d => {
+    if (d.status==="failed") return "#f85149";
+    if (d.status==="progressing") return "#f0883e";
+    if (d.status==="ready") return "#3fb950";
+    return COLORS[d.type]||"#58a6ff";
+  }).attr("stroke-width",d => d.status && d.status!=="unknown" ? 2 : 1.5);
 
 nodeGs.each(function(d) {
   const g = d3.select(this);
@@ -612,6 +626,14 @@ function showDetail(d) {
     ["Domain",   d.domain||"–"],
     ["DependsOn",d.dependsOn?.join(", ")||"–"],
   ];
+  // Live status rows
+  if (d.status) {
+    const statusColor = {ready:"#3fb950",failed:"#f85149",progressing:"#f0883e",unknown:"#444c56"};
+    const c = statusColor[d.status]||"#8b949e";
+    rows.push(["Status", `<span style="color:${c};font-weight:700">${d.status}</span>`]);
+    if (d.message) rows.push(["Message", d.message]);
+    if (d.updatedAt) rows.push(["Updated", d.updatedAt]);
+  }
   let html = rows.map(([k,v]) =>
     `<div class="dp-row"><span class="dp-key">${k}</span><span class="dp-val">${v}</span></div>`
   ).join("");

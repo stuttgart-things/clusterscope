@@ -19,6 +19,22 @@ var htmlTemplate string
 //go:embed shell.html
 var shellTemplate string
 
+//go:embed index.html
+var indexTemplate string
+
+// IndexCluster is one row in the multi-cluster index page.
+type IndexCluster struct {
+	Name    string
+	Profile *graph.ClusterProfile
+	Err     error
+}
+
+type indexData struct {
+	Clusters    []IndexCluster
+	TotalNodes  int
+	TechSummary string
+}
+
 type kustCard struct {
 	Name      string
 	Path      string
@@ -224,4 +240,33 @@ func parseSub(sub string) (branch, interval string) {
 func WriteShell(w io.Writer) error {
 	_, err := io.WriteString(w, shellTemplate)
 	return err
+}
+
+// WriteIndex renders a multi-cluster index page from a list of cluster entries.
+func WriteIndex(w io.Writer, clusters []IndexCluster) error {
+	total := 0
+	techs := map[string]bool{}
+	for _, c := range clusters {
+		if c.Profile != nil {
+			total += len(c.Profile.Graph.Nodes)
+			techs[c.Profile.Technology] = true
+		}
+	}
+	techNames := make([]string, 0, len(techs))
+	for t := range techs {
+		techNames = append(techNames, t)
+	}
+	sort.Strings(techNames)
+
+	data := indexData{
+		Clusters:    clusters,
+		TotalNodes:  total,
+		TechSummary: strings.Join(techNames, " + "),
+	}
+
+	tmpl, err := template.New("index").Parse(indexTemplate)
+	if err != nil {
+		return err
+	}
+	return tmpl.Execute(w, data)
 }

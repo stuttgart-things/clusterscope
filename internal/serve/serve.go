@@ -18,6 +18,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 	"github.com/stuttgart-things/clusterscope/internal/render"
+	"github.com/stuttgart-things/clusterscope/internal/scan"
 	"github.com/stuttgart-things/clusterscope/pkg/argocd"
 	"github.com/stuttgart-things/clusterscope/pkg/flux"
 )
@@ -78,7 +79,7 @@ func (s *Server) scanAll() {
 }
 
 func (s *Server) scanCluster(path, name string) {
-	tech := detectTech(path)
+	tech := scan.DetectTech(path)
 	var profile *graph.ClusterProfile
 	var err error
 
@@ -99,30 +100,6 @@ func (s *Server) scanCluster(path, name string) {
 	s.scanned[name] = time.Now()
 	s.mu.Unlock()
 	log.Printf("scanned %s  tech=%s  nodes=%d", name, tech, len(profile.Graph.Nodes))
-}
-
-// detectTech returns "argocd" if any .yaml in dir contains ArgoCD markers,
-// otherwise "flux".
-func detectTech(dir string) string {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "flux"
-	}
-	for _, e := range entries {
-		if e.IsDir() || (!strings.HasSuffix(e.Name(), ".yaml") && !strings.HasSuffix(e.Name(), ".yml")) {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
-		if err != nil {
-			continue
-		}
-		content := string(data)
-		if strings.Contains(content, "argoproj.io") ||
-			strings.Contains(content, "kind: Application") {
-			return "argocd"
-		}
-	}
-	return "flux"
 }
 
 // ── file watcher ──────────────────────────────────────────────────────────────

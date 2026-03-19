@@ -19,7 +19,16 @@ import (
 	"github.com/stuttgart-things/clusterscope/pkg/flux"
 )
 
+// Build-time variables (injected via -ldflags).
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 func main() {
+	render.SetBuildInfo(version, commit, date)
+
 	dir := flag.String("dir", ".", "path to the cluster directory to visualize")
 	out := flag.String("out", "", "output file path (default: stdout)")
 	tech := flag.String("tech", "flux", "technology to parse: flux | argocd")

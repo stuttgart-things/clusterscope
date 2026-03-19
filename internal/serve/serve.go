@@ -38,21 +38,21 @@ type Options struct {
 
 // ClusterSummary is the JSON payload returned by GET /api/clusters.
 type ClusterSummary struct {
-	Name         string `json:"name"`
-	Tech         string `json:"tech"`
-	NodeCount    int    `json:"nodeCount"`
-	LastScan     string `json:"lastScan"`
+	Name          string `json:"name"`
+	Tech          string `json:"tech"`
+	NodeCount     int    `json:"nodeCount"`
+	LastScan      string `json:"lastScan"`
 	LastRefreshed string `json:"lastRefreshed,omitempty"`
 }
 
 // Server holds the HTTP mux and cluster cache.
 type Server struct {
-	root        string
-	opts        Options
-	mu          sync.RWMutex
-	cache       map[string]*graph.ClusterProfile
-	scanned     map[string]time.Time
-	refreshed   map[string]time.Time
+	root      string
+	opts      Options
+	mu        sync.RWMutex
+	cache     map[string]*graph.ClusterProfile
+	scanned   map[string]time.Time
+	refreshed map[string]time.Time
 }
 
 // Start starts the HTTP server on addr, scanning root for cluster directories.
@@ -96,35 +96,52 @@ func Start(addr, root string, opts Options) error {
 // ── live enrichment ────────────────────────────────────────────────────────────
 
 func (s *Server) enrichAll() {
-s.mu.RLock()
-names := make([]string, 0, len(s.cache))
-for n := range s.cache {
-names = append(names, n)
-}
-s.mu.RUnlock()
-for _, name := range names {
-s.mu.Lock()
-p := s.cache[name]
-s.mu.Unlock()
-if p != nil {
-live.Enrich(p, s.opts.Kubeconfig)
-s.mu.Lock()
-s.refreshed[name] = time.Now()
-s.mu.Unlock()
-log.Printf("live enriched %s", name)
-}
-}
+	s.mu.RLock()
+	names := make([]string, 0, len(s.cache))
+	for n := range s.cache {
+		names = append(names, n)
+	}
+	s.mu.RUnlock()
+	for _, name := range names {
+		s.mu.Lock()
+		p := s.cache[name]
+		s.mu.Unlock()
+		if p != nil {
+			live.Enrich(p, s.opts.Kubeconfig)
+			s.mu.Lock()
+			s.refreshed[name] = time.Now()
+			s.mu.Unlock()
+			log.Printf("live enriched %s", name)
+		}
+	}
 }
 
 func (s *Server) liveRefreshLoop() {
-ticker := time.NewTicker(time.Duration(s.opts.RefreshSeconds) * time.Second)
-defer ticker.Stop()
-for range ticker.C {
-s.enrichAll()
-}
+	ticker := time.NewTicker(time.Duration(s.opts.RefreshSeconds) * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		s.enrichAll()
+	}
 }
 
 func (s *Server) scanAll() {
+	// Check if any immediate subdirectory contains YAML — if yes, multi-cluster mode.
+	// Only fall back to treating root as a single cluster if no subdir clusters exist.
+	hasSubClusters := false
+	if dirEntries, err := os.ReadDir(s.root); err == nil {
+		for _, e := range dirEntries {
+			if e.IsDir() && scan.HasYAML(filepath.Join(s.root, e.Name())) {
+				hasSubClusters = true
+				break
+			}
+		}
+	}
+
+	if !hasSubClusters && scan.HasYAML(s.root) {
+		s.scanCluster(s.root, filepath.Base(s.root))
+		return
+	}
+
 	entries, err := os.ReadDir(s.root)
 	if err != nil {
 		log.Printf("scanAll: %v", err)

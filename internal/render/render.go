@@ -108,6 +108,9 @@ type templateData struct {
 	HasArgoProjects bool
 	HasArgoAppSets  bool
 	HasArgoApps     bool
+
+	// Live mode
+	LiveRefreshed string // non-empty when -live was used
 }
 
 // WriteHTML renders the cluster profile as a standalone HTML page to w.

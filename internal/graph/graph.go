@@ -17,6 +17,11 @@ type Node struct {
 	DependsOn  []string          `json:"dependsOn,omitempty"`
 	Substitute map[string]string `json:"substitute,omitempty"`
 	Technology string            `json:"technology"` // "flux" | "argocd"
+
+	// Live status — populated only when --live is active.
+	Status    string `json:"status,omitempty"`    // "ready" | "failed" | "progressing" | "unknown"
+	Message   string `json:"message,omitempty"`   // last condition message
+	UpdatedAt string `json:"updatedAt,omitempty"` // ISO-8601 timestamp
 }
 
 // Edge represents a directed dependency or watch relationship between nodes.

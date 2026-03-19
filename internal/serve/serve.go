@@ -17,42 +17,70 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
+	"github.com/stuttgart-things/clusterscope/internal/live"
 	"github.com/stuttgart-things/clusterscope/internal/render"
 	"github.com/stuttgart-things/clusterscope/internal/scan"
 	"github.com/stuttgart-things/clusterscope/pkg/argocd"
 	"github.com/stuttgart-things/clusterscope/pkg/flux"
 )
 
+// Options configures optional features of the HTTP server.
+type Options struct {
+	// Live enriches every cluster profile with real-time reconciliation status
+	// fetched via kubectl. Requires kubectl on PATH and a valid KUBECONFIG.
+	Live bool
+	// Kubeconfig is the path to the kubeconfig file. Empty means kubectl default.
+	Kubeconfig string
+	// RefreshSeconds is how often (in seconds) live status is re-fetched.
+	// Defaults to 30 when Live is true.
+	RefreshSeconds int
+}
+
 // ClusterSummary is the JSON payload returned by GET /api/clusters.
 type ClusterSummary struct {
-	Name      string `json:"name"`
-	Tech      string `json:"tech"`
-	NodeCount int    `json:"nodeCount"`
-	LastScan  string `json:"lastScan"`
+	Name         string `json:"name"`
+	Tech         string `json:"tech"`
+	NodeCount    int    `json:"nodeCount"`
+	LastScan     string `json:"lastScan"`
+	LastRefreshed string `json:"lastRefreshed,omitempty"`
 }
 
 // Server holds the HTTP mux and cluster cache.
 type Server struct {
-	root    string
-	mu      sync.RWMutex
-	cache   map[string]*graph.ClusterProfile
-	scanned map[string]time.Time
+	root        string
+	opts        Options
+	mu          sync.RWMutex
+	cache       map[string]*graph.ClusterProfile
+	scanned     map[string]time.Time
+	refreshed   map[string]time.Time
 }
 
 // Start starts the HTTP server on addr, scanning root for cluster directories.
-func Start(addr, root string) error {
+func Start(addr, root string, opts Options) error {
 	if _, err := os.Stat(root); err != nil {
 		return err
 	}
 
+	if opts.Live && opts.RefreshSeconds <= 0 {
+		opts.RefreshSeconds = 30
+	}
+
 	s := &Server{
-		root:    root,
-		cache:   make(map[string]*graph.ClusterProfile),
-		scanned: make(map[string]time.Time),
+		root:      root,
+		opts:      opts,
+		cache:     make(map[string]*graph.ClusterProfile),
+		scanned:   make(map[string]time.Time),
+		refreshed: make(map[string]time.Time),
 	}
 
 	s.scanAll()
 	go s.watch()
+
+	if opts.Live {
+		log.Printf("live mode enabled  kubeconfig=%q  refresh=%ds", opts.Kubeconfig, opts.RefreshSeconds)
+		s.enrichAll()
+		go s.liveRefreshLoop()
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleIndex)
@@ -64,6 +92,37 @@ func Start(addr, root string) error {
 }
 
 // ── scanning ──────────────────────────────────────────────────────────────────
+
+// ── live enrichment ────────────────────────────────────────────────────────────
+
+func (s *Server) enrichAll() {
+s.mu.RLock()
+names := make([]string, 0, len(s.cache))
+for n := range s.cache {
+names = append(names, n)
+}
+s.mu.RUnlock()
+for _, name := range names {
+s.mu.Lock()
+p := s.cache[name]
+s.mu.Unlock()
+if p != nil {
+live.Enrich(p, s.opts.Kubeconfig)
+s.mu.Lock()
+s.refreshed[name] = time.Now()
+s.mu.Unlock()
+log.Printf("live enriched %s", name)
+}
+}
+}
+
+func (s *Server) liveRefreshLoop() {
+ticker := time.NewTicker(time.Duration(s.opts.RefreshSeconds) * time.Second)
+defer ticker.Stop()
+for range ticker.C {
+s.enrichAll()
+}
+}
 
 func (s *Server) scanAll() {
 	entries, err := os.ReadDir(s.root)
@@ -100,6 +159,13 @@ func (s *Server) scanCluster(path, name string) {
 	s.scanned[name] = time.Now()
 	s.mu.Unlock()
 	log.Printf("scanned %s  tech=%s  nodes=%d", name, tech, len(profile.Graph.Nodes))
+
+	if s.opts.Live {
+		live.Enrich(profile, s.opts.Kubeconfig)
+		s.mu.Lock()
+		s.refreshed[name] = time.Now()
+		s.mu.Unlock()
+	}
 }
 
 // ── file watcher ──────────────────────────────────────────────────────────────
@@ -163,12 +229,16 @@ func (s *Server) handleAPIclusters(w http.ResponseWriter, _ *http.Request) {
 
 	summaries := make([]ClusterSummary, 0, len(s.cache))
 	for name, p := range s.cache {
-		summaries = append(summaries, ClusterSummary{
+		cs := ClusterSummary{
 			Name:      name,
 			Tech:      p.Technology,
 			NodeCount: len(p.Graph.Nodes),
 			LastScan:  s.scanned[name].Format(time.RFC3339),
-		})
+		}
+		if t, ok := s.refreshed[name]; ok {
+			cs.LastRefreshed = t.Format(time.RFC3339)
+		}
+		summaries = append(summaries, cs)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

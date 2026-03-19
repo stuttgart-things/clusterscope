@@ -98,6 +98,42 @@ tasks:
     cmds:
       - go run ./cmd/clusterscope -dir {{ .DIR }} -serve :{{ .PORT }}
 
+  ui-serve:
+    desc: Serve multi-cluster UI locally (live dashboard, auto-reload on changes)
+    vars:
+      ROOT: '{{ .ROOT | default "/tmp/test-clusters" }}'
+      PORT: '{{ .PORT | default "8080" }}'
+    cmds:
+      - echo "Starting clusterscope dashboard at http://localhost:{{ .PORT }} (root={{ .ROOT }})"
+      - go run ./cmd/clusterscope -serve :{{ .PORT }} -root {{ .ROOT }}
+
+  ui-serve-live:
+    desc: Serve multi-cluster UI with live kubectl status enrichment
+    vars:
+      ROOT: '{{ .ROOT | default "/tmp/test-clusters" }}'
+      PORT: '{{ .PORT | default "8080" }}'
+      KUBECONFIG: '{{ .KUBECONFIG | default "" }}'
+      REFRESH: '{{ .REFRESH | default "30" }}'
+    cmds:
+      - echo "Starting clusterscope LIVE dashboard at http://localhost:{{ .PORT }} (root={{ .ROOT }})"
+      - >
+        go run ./cmd/clusterscope
+        -serve :{{ .PORT }}
+        -root {{ .ROOT }}
+        -live
+        {{ if .KUBECONFIG }}-kubeconfig {{ .KUBECONFIG }}{{ end }}
+        -refresh {{ .REFRESH }}
+
+  ui-static:
+    desc: Generate static multi-cluster HTML dashboard locally
+    vars:
+      ROOT: '{{ .ROOT | default "/tmp/test-clusters" }}'
+      OUT: '{{ .OUT | default "/tmp/clusterscope-ui" }}'
+    cmds:
+      - go run ./cmd/clusterscope -root {{ .ROOT }} -out {{ .OUT }}
+      - echo "Dashboard generated at {{ .OUT }}/index.html"
+      - 'echo "Open with: xdg-open {{ .OUT }}/index.html"'
+
   trigger-release:
     desc: Trigger Release workflow on GitHub Actions
     cmds:

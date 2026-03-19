@@ -4,3 +4,23 @@ config.tech: flux
 config.dir: /data
 config.port: 8080
 config.replicas: 1
+# Git-sync sidecar (enable for Kubernetes deployments)
+# config.gitSyncEnabled: "true"
+# config.reposConfig: |
+#   repos:
+#     - name: stuttgart-things-clusters
+#       url: https://github.com/stuttgart-things/clusters
+#       branch: main
+#       paths:
+#         - clusters/labul
+#         - clusters/labda
+#       syncInterval: 60s
+#     - name: private-infra
+#       url: https://github.com/acme/infra-clusters
+#       branch: main
+#       paths:
+#         - environments/prod
+#       syncInterval: 120s
+#       auth:
+#         type: token
+#         secretRef: infra-git-token

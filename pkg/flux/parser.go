@@ -18,11 +18,6 @@ import (
 
 // ── Internal Flux structs ──────────────────────────────────────────────────
 
-type fluxMeta struct {
-	Name      string
-	Namespace string
-}
-
 type kustomization struct {
 	Name       string
 	Namespace  string

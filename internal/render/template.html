@@ -13,8 +13,11 @@
   .header{display:grid;grid-template-columns:1fr auto;align-items:center;padding:20px 28px;
     background:linear-gradient(135deg,#161b22 0%,#1c2431 100%);border:1px solid #30363d;
     border-radius:12px;border-left:4px solid #58a6ff}
-  .header-left h1{font-size:28px;font-weight:700;color:#58a6ff;letter-spacing:-.5px}
+  .header-left h1{font-size:28px;font-weight:700;color:#e6edf3;letter-spacing:-.5px}
   .header-left h1 span{color:#e6edf3}
+  .header-brand{font-size:13px;font-weight:700;color:#58a6ff;letter-spacing:.04em;
+    display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+  .header-brand-sub{font-size:11px;color:#58a6ff;opacity:.7;font-weight:400;letter-spacing:.02em}
   .subtitle{margin-top:6px;font-size:13px;color:#8b949e;display:flex;gap:20px;flex-wrap:wrap}
   .subtitle span{display:flex;align-items:center;gap:5px}
   .dot{width:8px;height:8px;border-radius:50%;background:#3fb950;display:inline-block;
@@ -194,7 +197,12 @@
     @page{margin:1.5cm;size:A4}
     h2{page-break-before:always;margin-top:0}
     h2:first-of-type{page-break-before:avoid}
+    .build-footer{display:none!important}
   }
+
+  /* BUILD FOOTER */
+  /* BUILD FOOTER — unused on cluster page, kept for print suppression ref */
+  .build-footer{display:none}
 </style>
 </head>
 <body>
@@ -203,6 +211,7 @@
   <!-- HEADER -->
   <div class="header">
     <div class="header-left">
+      <div class="header-brand">⎈ clusterscope <span class="header-brand-sub">GitOps cluster visualizer</span></div>
       <h1>{{.ClusterName}} <span>· cluster profile</span></h1>
       <div class="subtitle">
         <span><span class="dot"></span> {{.ClusterPath}}</span>

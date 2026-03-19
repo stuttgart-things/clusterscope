@@ -80,6 +80,20 @@ type fluxInstanceData struct {
 	Components []string
 }
 
+// Package-level build info, set once at startup via SetBuildInfo.
+var (
+	appVersion  = "dev"
+	buildCommit = "unknown"
+	buildDate   = "unknown"
+)
+
+// SetBuildInfo stores build-time version metadata for use in rendered pages.
+func SetBuildInfo(version, commit, date string) {
+	appVersion = version
+	buildCommit = commit
+	buildDate = date
+}
+
 type templateData struct {
 	ClusterName   string
 	ClusterPath   string
@@ -111,6 +125,11 @@ type templateData struct {
 
 	// Live mode
 	LiveRefreshed string // non-empty when -live was used
+
+	// Build info
+	AppVersion  string
+	BuildCommit string
+	BuildDate   string
 }
 
 // WriteHTML renders the cluster profile as a standalone HTML page to w.
@@ -134,6 +153,9 @@ func buildTemplateData(profile *graph.ClusterProfile, graphJSON template.JS) tem
 		Technology:    profile.Technology,
 		Meta:          profile.Meta,
 		GraphDataJSON: graphJSON,
+		AppVersion:    appVersion,
+		BuildCommit:   buildCommit,
+		BuildDate:     buildDate,
 	}
 
 	for _, n := range profile.Graph.Nodes {
@@ -241,8 +263,20 @@ func parseSub(sub string) (branch, interval string) {
 
 // WriteShell renders the HTMX dashboard shell page to w.
 func WriteShell(w io.Writer) error {
-	_, err := io.WriteString(w, shellTemplate)
-	return err
+	type shellData struct {
+		AppVersion  string
+		BuildCommit string
+		BuildDate   string
+	}
+	tmpl, err := template.New("shell").Parse(shellTemplate)
+	if err != nil {
+		return err
+	}
+	return tmpl.Execute(w, shellData{
+		AppVersion:  appVersion,
+		BuildCommit: buildCommit,
+		BuildDate:   buildDate,
+	})
 }
 
 // WriteIndex renders a multi-cluster index page from a list of cluster entries.

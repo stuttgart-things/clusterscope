@@ -31,7 +31,7 @@
     font-size: 1.1rem;
     font-weight: 700;
     letter-spacing: -0.02em;
-    color: #7c83ff;
+    color: #58a6ff;
   }
   header span.subtitle {
     font-size: 0.8rem;
@@ -131,15 +131,11 @@
   }
   .welcome p { font-size: 0.9rem; }
 
-  /* ── footer ── */
-  footer {
-    background: #141720;
-    border-top: 1px solid #2d3148;
-    padding: 0.35rem 1.5rem;
-    font-size: 0.7rem;
-    color: #4a5568;
-    flex-shrink: 0;
-  }
+  /* BUILD FOOTER */
+  .build-footer{background:#141720;color:#475569;padding:.5rem 1.5rem;
+    display:flex;gap:1.5rem;font-size:.75rem;border-top:1px solid #2d3148;align-items:center;flex-shrink:0;position:relative}
+  .build-footer .bf-label{color:#64748b}
+  .build-footer .bf-value{color:#818cf8}
 </style>
 </head>
 <body>
@@ -173,8 +169,6 @@
     </div>
   </main>
 </div>
-
-<footer>clusterscope &mdash; static GitOps graph visualization</footer>
 
 <script>
 // Render cluster list items from /api/clusters JSON response.
@@ -249,5 +243,19 @@ window.addEventListener("popstate", function(e) {
   }
 })();
 </script>
+<div class="build-footer">
+  <div style="display:flex;gap:1.5rem">
+    <div><span class="bf-label">version</span> <span class="bf-value">{{.AppVersion}}</span></div>
+    <div><span class="bf-label">commit</span> <span class="bf-value">{{if gt (len .BuildCommit) 7}}{{slice .BuildCommit 0 7}}{{else}}{{.BuildCommit}}{{end}}</span></div>
+    <div><span class="bf-label">built</span> <span class="bf-value">{{.BuildDate}}</span></div>
+  </div>
+  <div style="position:absolute;left:50%;transform:translateX(-50%);font-size:.75rem;color:#4a5568">clusterscope &mdash; static GitOps graph visualization</div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem">
+    <span class="bf-label">a</span>
+    <a href="https://github.com/stuttgart-things" target="_blank" style="color:#818cf8;text-decoration:none">stuttgart-things</a>
+    <span class="bf-label">project</span>
+    <img src="https://raw.githubusercontent.com/stuttgart-things/docs/main/hugo/sthings-logo.png" alt="sthings" style="height:24px">
+  </div>
+</div>
 </body>
 </html>

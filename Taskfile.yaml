@@ -32,6 +32,13 @@ vars:
   RENDERED_OUTPUT_PATH: /tmp/rendered-{{ .PROJECT }}.yaml
   KUSTOMIZE_BASE_EXPORT_PATH: /tmp/kustomize-base-{{ .PROJECT }}
   KUSTOMIZE_OCI_REPO: ghcr.io/{{ .ORGA_NAME }}/{{ .PROJECT }}-kustomize
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null | grep -v '^$' || echo dev
+  COMMIT:
+    sh: git rev-parse --short HEAD 2>/dev/null || echo unknown
+  DATE:
+    sh: date -u '+%Y-%m-%dT%H:%M:%SZ'
+  LDFLAGS: -X main.version={{.VERSION}} -X main.commit={{.COMMIT}} -X main.date={{.DATE}}
 
 tasks:
   lint:
@@ -87,7 +94,7 @@ tasks:
       TECH: '{{ .TECH | default "flux" }}'
       OUT: '{{ .OUT | default "/tmp/clusterscope-out.html" }}'
     cmds:
-      - go run ./cmd/clusterscope -dir {{ .DIR }} -tech {{ .TECH }} -out {{ .OUT }}
+      - go run -ldflags '{{.LDFLAGS}}' ./cmd/clusterscope -dir {{ .DIR }} -tech {{ .TECH }} -out {{ .OUT }}
       - echo "Output written to {{ .OUT }}"
 
   run-serve:
@@ -96,7 +103,7 @@ tasks:
       DIR: '{{ .DIR | default "./clusters" }}'
       PORT: '{{ .PORT | default "8080" }}'
     cmds:
-      - go run ./cmd/clusterscope -dir {{ .DIR }} -serve :{{ .PORT }}
+      - go run -ldflags '{{.LDFLAGS}}' ./cmd/clusterscope -dir {{ .DIR }} -serve :{{ .PORT }}
 
   ui-serve:
     desc: Serve multi-cluster UI locally (live dashboard, auto-reload on changes)
@@ -105,7 +112,7 @@ tasks:
       PORT: '{{ .PORT | default "8080" }}'
     cmds:
       - echo "Starting clusterscope dashboard at http://localhost:{{ .PORT }} (root={{ .ROOT }})"
-      - go run ./cmd/clusterscope -serve :{{ .PORT }} -root {{ .ROOT }}
+      - go run -ldflags '{{.LDFLAGS}}' ./cmd/clusterscope -serve :{{ .PORT }} -root {{ .ROOT }}
 
   ui-serve-live:
     desc: Serve multi-cluster UI with live kubectl status enrichment
@@ -117,7 +124,7 @@ tasks:
     cmds:
       - echo "Starting clusterscope LIVE dashboard at http://localhost:{{ .PORT }} (root={{ .ROOT }})"
       - >
-        go run ./cmd/clusterscope
+        go run -ldflags '{{.LDFLAGS}}' ./cmd/clusterscope
         -serve :{{ .PORT }}
         -root {{ .ROOT }}
         -live
@@ -130,7 +137,7 @@ tasks:
       ROOT: '{{ .ROOT | default "/tmp/test-clusters" }}'
       OUT: '{{ .OUT | default "/tmp/clusterscope-ui" }}'
     cmds:
-      - go run ./cmd/clusterscope -root {{ .ROOT }} -out {{ .OUT }}
+      - go run -ldflags '{{.LDFLAGS}}' ./cmd/clusterscope -root {{ .ROOT }} -out {{ .OUT }}
       - echo "Dashboard generated at {{ .OUT }}/index.html"
       - 'echo "Open with: xdg-open {{ .OUT }}/index.html"'
 

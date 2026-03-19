@@ -124,7 +124,7 @@
     color:#3fb950;background:#0d1117;border-radius:10px;padding:2px 10px;border:1px solid #3fb95044}
 
   /* DETAIL PANEL */
-  #detail-panel{position:fixed;top:80px;right:20px;width:300px;background:#161b22;
+  #detail-panel{position:fixed;top:80px;left:20px;width:300px;background:#161b22;
     border:1px solid #58a6ff;border-radius:12px;padding:16px;z-index:100;
     box-shadow:0 8px 32px #00000088;display:none;animation:slideIn .2s ease}
   @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
@@ -559,14 +559,19 @@ const nodeGs = svg.append("g").selectAll("g").data(nodes).join("g")
   .attr("transform", d => `translate(${d._x},${d._y})`)
   .attr("data-id", d => d.id)
   .style("cursor","pointer")
-  .on("click", (_, d) => showDetail(d))
+  .on("click", (event, d) => showDetail(d, event))
   .on("mouseover", function(_, d) {
     d3.select(this).select("rect").attr("fill","#2d333b").attr("stroke-width",2.5);
     edgePaths.attr("opacity", e => (e.s===d.id||e.t===d.id) ? 1 : 0.05);
   })
   .on("mouseout", function(_, d) {
     d3.select(this).select("rect").attr("fill","#21262d").attr("stroke-width",1.5);
-    edgePaths.attr("opacity", e => e.kind==="dependsOn" ? 0.9 : 0.5);
+    // Restore opacity only for edges whose endpoints are still visible
+    edgePaths.attr("opacity", e => {
+      const sv = isVisible(nodeMap[e.s]), tv = isVisible(nodeMap[e.t]);
+      if (!sv || !tv) return 0;
+      return e.kind==="dependsOn" ? 0.9 : 0.5;
+    });
   });
 
 nodeGs.append("rect")
@@ -624,7 +629,21 @@ function highlightGraphNodes(q) {
 }
 
 /* ═══════════ DETAIL PANEL ═══════════ */
-function showDetail(d) {
+function showDetail(d, event) {
+  const panel = document.getElementById("detail-panel");
+  // Position near clicked node, keeping panel within viewport
+  if (event) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const pw = 320, ph = 400; // approx panel size
+    let x = event.clientX + 16;
+    let y = event.clientY - 40;
+    if (x + pw > vw - 8) x = event.clientX - pw - 16;
+    if (y + ph > vh - 8) y = vh - ph - 8;
+    if (y < 8) y = 8;
+    panel.style.left = x + "px";
+    panel.style.top  = y + "px";
+    panel.style.right = "auto";
+  }
   document.getElementById("dp-title").textContent = d.id;
   const rows = [
     ["Layer",    d.type],

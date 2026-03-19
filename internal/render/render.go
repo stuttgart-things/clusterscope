@@ -16,6 +16,9 @@ import (
 //go:embed template.html
 var htmlTemplate string
 
+//go:embed shell.html
+var shellTemplate string
+
 type kustCard struct {
 	Name      string
 	Path      string
@@ -215,4 +218,10 @@ func parseSub(sub string) (branch, interval string) {
 		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 	}
 	return sub, ""
+}
+
+// WriteShell renders the HTMX dashboard shell page to w.
+func WriteShell(w io.Writer) error {
+	_, err := io.WriteString(w, shellTemplate)
+	return err
 }

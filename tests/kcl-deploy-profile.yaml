@@ -1,0 +1,6 @@
+config.image: ghcr.io/stuttgart-things/clusterscope:latest
+config.namespace: clusterscope
+config.tech: flux
+config.dir: /data
+config.port: 8080
+config.replicas: 1

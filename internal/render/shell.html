@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>clusterscope</title>
+<script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── header ── */
+  header {
+    background: #1a1d27;
+    border-bottom: 1px solid #2d3148;
+    padding: 0 1.5rem;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+  }
+  header h1 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #7c83ff;
+  }
+  header span.subtitle {
+    font-size: 0.8rem;
+    color: #64748b;
+  }
+
+  /* ── layout ── */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── sidebar ── */
+  nav.sidebar {
+    width: 220px;
+    background: #141720;
+    border-right: 1px solid #2d3148;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  nav.sidebar h2 {
+    padding: 1rem 1rem 0.5rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #4a5568;
+    font-weight: 600;
+  }
+  nav.sidebar ul {
+    list-style: none;
+    padding: 0 0.5rem 1rem;
+  }
+  nav.sidebar ul li a {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  nav.sidebar ul li a:hover,
+  nav.sidebar ul li a.active {
+    background: #1e2235;
+    color: #e2e8f0;
+  }
+  nav.sidebar ul li a .badge {
+    margin-left: auto;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 9999px;
+    background: #1e2a45;
+    color: #60a5fa;
+  }
+  nav.sidebar ul li a .badge.argocd {
+    background: #1e3a2a;
+    color: #34d399;
+  }
+
+  /* loading state */
+  nav.sidebar ul.htmx-indicator {
+    opacity: 0.5;
+  }
+
+  /* ── main panel ── */
+  main {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  #cluster-frame {
+    width: 100%;
+    flex: 1;
+    border: none;
+    background: #0f1117;
+  }
+  .welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 1rem;
+    color: #4a5568;
+  }
+  .welcome svg {
+    width: 64px;
+    height: 64px;
+    opacity: 0.3;
+  }
+  .welcome p { font-size: 0.9rem; }
+
+  /* ── footer ── */
+  footer {
+    background: #141720;
+    border-top: 1px solid #2d3148;
+    padding: 0.35rem 1.5rem;
+    font-size: 0.7rem;
+    color: #4a5568;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>⎈ clusterscope</h1>
+  <span class="subtitle">GitOps cluster visualizer</span>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" aria-label="Cluster navigation">
+    <h2>Clusters</h2>
+    <ul id="cluster-list"
+        hx-get="/api/clusters"
+        hx-trigger="load"
+        hx-target="#cluster-list"
+        hx-swap="innerHTML"
+        aria-live="polite">
+      <li style="padding: 0.5rem 1rem; font-size:0.8rem; color:#4a5568;">Loading...</li>
+    </ul>
+  </nav>
+
+  <main>
+    <div id="main" style="display:flex; flex-direction:column; height:100%;">
+      <div class="welcome">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        <p>Select a cluster from the sidebar to visualize it.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<footer>clusterscope &mdash; static GitOps graph visualization</footer>
+
+<script>
+// Render cluster list items from /api/clusters JSON response.
+// HTMX calls hx-get="/api/clusters" and swaps innerHTML of #cluster-list,
+// but since the response is JSON we need a server-side template.
+// Instead, we fetch manually and render the list.
+document.addEventListener("DOMContentLoaded", function () {
+  loadClusters();
+});
+
+function loadClusters() {
+  fetch("/api/clusters")
+    .then(r => r.json())
+    .then(clusters => {
+      const list = document.getElementById("cluster-list");
+      if (!clusters || clusters.length === 0) {
+        list.innerHTML = '<li style="padding:0.5rem 1rem;font-size:0.8rem;color:#4a5568;">No clusters found.</li>';
+        return;
+      }
+      // Sort alphabetically
+      clusters.sort((a, b) => a.name.localeCompare(b.name));
+      list.innerHTML = clusters.map(c => {
+        const techClass = c.tech === "argocd" ? "argocd" : "";
+        const techLabel = c.tech === "argocd" ? "ArgoCD" : "Flux";
+        return `<li>
+          <a href="#" onclick="loadCluster('${escHtml(c.name)}');return false;"
+             id="link-${escHtml(c.name)}"
+             aria-label="Open cluster ${escHtml(c.name)}">
+            ${escHtml(c.name)}
+            <span class="badge ${techClass}">${techLabel}</span>
+          </a>
+        </li>`;
+      }).join("");
+    })
+    .catch(e => {
+      const list = document.getElementById("cluster-list");
+      list.innerHTML = '<li style="padding:0.5rem 1rem;font-size:0.8rem;color:#ef4444;">Failed to load clusters.</li>';
+    });
+}
+
+function loadCluster(name) {
+  // Update URL
+  history.pushState({cluster: name}, "", "/clusters/" + encodeURIComponent(name));
+
+  // Mark active
+  document.querySelectorAll("nav.sidebar a").forEach(a => a.classList.remove("active"));
+  const link = document.getElementById("link-" + name);
+  if (link) link.classList.add("active");
+
+  // Load cluster in iframe
+  const main = document.getElementById("main");
+  main.innerHTML = '<iframe id="cluster-frame" src="/clusters/' + encodeURIComponent(name) + '" title="Cluster visualization for ' + escHtml(name) + '" aria-label="Cluster visualization"></iframe>';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+// Handle browser back/forward
+window.addEventListener("popstate", function(e) {
+  if (e.state && e.state.cluster) {
+    loadCluster(e.state.cluster);
+  }
+});
+
+// On initial load, check if URL has a cluster path
+(function() {
+  const m = window.location.pathname.match(/^\/clusters\/([^/]+)$/);
+  if (m) {
+    // Wait for cluster list to load first, then activate
+    setTimeout(() => loadCluster(decodeURIComponent(m[1])), 300);
+  }
+})();
+</script>
+</body>
+</html>

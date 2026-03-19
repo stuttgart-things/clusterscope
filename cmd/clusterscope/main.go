@@ -3,7 +3,7 @@
 // Usage:
 //
 //	clusterscope -dir <cluster-dir> [-out <output.html>] [-tech flux|argocd]
-//	clusterscope -serve -root <clusters-root> [-addr :8080]
+//	clusterscope -serve :8080 -root <clusters-root-dir>
 package main
 
 import (
@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/stuttgart-things/clusterscope/internal/render"
+	"github.com/stuttgart-things/clusterscope/internal/serve"
 	"github.com/stuttgart-things/clusterscope/pkg/argocd"
 	"github.com/stuttgart-things/clusterscope/pkg/flux"
 )
@@ -21,14 +22,17 @@ func main() {
 	dir := flag.String("dir", ".", "path to the cluster directory to visualize")
 	out := flag.String("out", "", "output file path (default: stdout)")
 	tech := flag.String("tech", "flux", "technology to parse: flux | argocd")
+	serveAddr := flag.String("serve", "", "start HTTP dashboard server on addr (e.g. :8080); requires -root")
+	root := flag.String("root", ".", "root directory containing cluster subdirs (used with -serve)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `clusterscope — generate an interactive HTML cluster profile from GitOps YAML files
 
-Supported technologies: flux, argocd (argocd: planned, see GitHub issues)
+Supported technologies: flux, argocd
 
 Usage:
   clusterscope -dir <cluster-dir> [-out <output.html>] [-tech flux|argocd]
+  clusterscope -serve :8080 -root <clusters-root-dir>
 
 Flags:
 `)
@@ -38,10 +42,21 @@ Examples:
   clusterscope -dir ./clusters/labul/vsphere/movie-scripts
   clusterscope -dir ./clusters/labul/vsphere/movie-scripts -out profile.html
   clusterscope -dir ./argocd/clusters/prod -tech argocd -out prod.html
+  clusterscope -serve :8080 -root ./clusters/
 `)
 	}
 	flag.Parse()
 
+	// ── Serve mode ────────────────────────────────────────────────────────────
+	if *serveAddr != "" {
+		if err := serve.Start(*serveAddr, *root); err != nil {
+			fmt.Fprintf(os.Stderr, "serve error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// ── Static render mode ────────────────────────────────────────────────────
 	var profile interface { /* graph.ClusterProfile */
 	}
 	_ = profile

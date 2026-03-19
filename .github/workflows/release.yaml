@@ -15,7 +15,7 @@ jobs:
     uses: stuttgart-things/github-workflow-templates/.github/workflows/call-go-release.yaml@main
     with:
       runs-on: ubuntu-latest
-      stage-image: true
+      stage-image: false
       push-kustomize: true
       kcl-source-dir: kcl
       kcl-profile-file: tests/kcl-deploy-profile.yaml

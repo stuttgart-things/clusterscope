@@ -6,6 +6,68 @@ import labels
 
 config = labels.config
 
+# git-sync sidecar container (only added when gitSyncEnabled=true)
+_gitSyncContainer = {
+    name: "git-sync"
+    image: config.gitSyncImage
+    args: ["--config=/etc/git-sync/repos.yaml"]
+    securityContext: {
+        readOnlyRootFilesystem: True
+        runAsNonRoot: True
+        runAsUser: 65533
+        allowPrivilegeEscalation: False
+        capabilities: {
+            drop: ["ALL"]
+        }
+    }
+    resources: {
+        requests: {
+            cpu: "10m"
+            memory: "32Mi"
+        }
+        limits: {
+            cpu: "100m"
+            memory: "128Mi"
+        }
+    }
+    volumeMounts: [
+        {
+            name: "gitdata"
+            mountPath: "/data"
+        }
+        {
+            name: "repos-config"
+            mountPath: "/etc/git-sync"
+            readOnly: True
+        }
+    ] + [
+        {
+            name: "secret-{}".format(s)
+            mountPath: "/etc/git-sync-secrets/{}".format(s)
+            readOnly: True
+        }
+        for s in config.repoAuthSecrets
+    ]
+}
+
+# extra volumes for git-sync (repos ConfigMap + auth Secrets)
+_gitSyncVolumes = [
+    {
+        name: "repos-config"
+        configMap: {
+            name: "{}-repos".format(config.name)
+        }
+    }
+] + [
+    {
+        name: "secret-{}".format(s)
+        secret: {
+            secretName: s
+        }
+    }
+    for s in config.repoAuthSecrets
+]
+
 deployment = {
     apiVersion: "apps/v1"
     kind: "Deployment"
@@ -95,7 +157,7 @@ deployment = {
                             }
                         ]
                     }
-                ]
+                ] + ([_gitSyncContainer] if config.gitSyncEnabled else [])
                 affinity: {
                     podAntiAffinity: {
                         preferredDuringSchedulingIgnoredDuringExecution: [
@@ -129,7 +191,7 @@ deployment = {
                         name: "gitdata"
                         emptyDir: {}
                     }
-                ]
+                ] + (_gitSyncVolumes if config.gitSyncEnabled else [])
             }
         }
     }

@@ -24,6 +24,7 @@ func main() {
 	tech := flag.String("tech", "flux", "technology to parse: flux | argocd")
 	serveAddr := flag.String("serve", "", "start HTTP dashboard server on addr (e.g. :8080); requires -root")
 	root := flag.String("root", ".", "root directory containing cluster subdirs (used with -serve)")
+	reposConfig := flag.String("repos-config", "", "path to repos.yaml defining git repositories (used with -serve in Kubernetes mode)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `clusterscope — generate an interactive HTML cluster profile from GitOps YAML files
@@ -43,12 +44,16 @@ Examples:
   clusterscope -dir ./clusters/labul/vsphere/movie-scripts -out profile.html
   clusterscope -dir ./argocd/clusters/prod -tech argocd -out prod.html
   clusterscope -serve :8080 -root ./clusters/
+  clusterscope -serve :8080 -root /data -repos-config /etc/git-sync/repos.yaml
 `)
 	}
 	flag.Parse()
 
 	// ── Serve mode ────────────────────────────────────────────────────────────
 	if *serveAddr != "" {
+		if *reposConfig != "" {
+			fmt.Fprintf(os.Stderr, "ℹ repos-config: %s (git-sync manages data delivery)\n", *reposConfig)
+		}
 		if err := serve.Start(*serveAddr, *root); err != nil {
 			fmt.Fprintf(os.Stderr, "serve error: %v\n", err)
 			os.Exit(1)

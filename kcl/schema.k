@@ -29,6 +29,18 @@ schema ClusterScope:
     # Technology: flux | argocd
     tech: str = "flux"
 
+    # Git-sync sidecar (Kubernetes serve mode)
+    gitSyncEnabled: bool = False
+    gitSyncImage: str = "registry.k8s.io/git-sync/git-sync:v4"
+
+    # Content of repos.yaml to be mounted as ConfigMap for git-sync.
+    # When set, a ConfigMap named "<name>-repos" is created.
+    reposConfig: str = ""
+
+    # Names of Kubernetes Secrets containing auth credentials for git-sync.
+    # Each secret is mounted at /etc/git-sync-secrets/<secret-name>/
+    repoAuthSecrets: [str] = []
+
     # Labels and annotations
     labels: {str:str} = {}
     annotations: {str:str} = {}

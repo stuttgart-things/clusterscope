@@ -133,7 +133,7 @@ func (s *Server) watch() {
 		log.Printf("fsnotify: %v", err)
 		return
 	}
-	defer watcher.Close()
+	defer func() { _ = watcher.Close() }()
 
 	if err := watcher.Add(s.root); err != nil {
 		log.Printf("fsnotify add: %v", err)

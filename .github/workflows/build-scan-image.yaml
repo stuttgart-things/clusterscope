@@ -16,4 +16,5 @@ jobs:
     uses: stuttgart-things/github-workflow-templates/.github/workflows/call-ko-build.yaml@main
     with:
       runs-on: ubuntu-latest
+      build-path: ./cmd/clusterscope
     secrets: inherit # pragma: allowlist secret

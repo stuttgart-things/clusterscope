@@ -112,7 +112,34 @@ tasks:
   # === KCL Manifest Rendering ===
 
   render-manifests:
-    desc: Render Kubernetes manifests using KCL via Dagger
+    desc: Render Kubernetes manifests using KCL via Dagger (interactive)
+    vars:
+      SOURCE:
+        sh: 'gum input --placeholder "Source directory" --value "{{ .KCL_SOURCE_DIR }}" --header "KCL SOURCE DIRECTORY"'
+      PROFILE:
+        sh: 'gum input --placeholder "Profile file path" --value "{{ .KCL_PROFILE_FILE }}" --header "PARAMETERS FILE"'
+      DESTINATION:
+        sh: 'gum input --placeholder "Output path" --value "{{ .RENDERED_OUTPUT_PATH }}" --header "OUTPUT PATH"'
+    cmds:
+      - |
+        echo "Rendering manifests with KCL..."
+        echo "Source: {{ .SOURCE }}"
+        echo "Profile: {{ .PROFILE }}"
+        echo "Output: {{ .DESTINATION }}"
+
+        dagger call -m {{ .DAGGER_KCL_MODULE }} run \
+          --source "{{ .SOURCE }}" \
+          --parameters-file="{{ .PROFILE }}" \
+          export --path="{{ .DESTINATION }}"
+
+        echo "Manifests rendered: {{ .DESTINATION }}"
+        if [ -f "{{ .DESTINATION }}" ]; then
+          head -n 20 "{{ .DESTINATION }}"
+          echo "... (cat {{ .DESTINATION }} for full file)"
+        fi
+
+  render-manifests-quick:
+    desc: Render Kubernetes manifests (non-interactive, uses defaults)
     vars:
       SOURCE: '{{ .SOURCE | default .KCL_SOURCE_DIR }}'
       PROFILE: '{{ .PROFILE | default .KCL_PROFILE_FILE }}'
@@ -123,7 +150,27 @@ tasks:
           --source "{{ .SOURCE }}" \
           --parameters-file="{{ .PROFILE }}" \
           export --path="{{ .DESTINATION }}"
+
         echo "Manifests rendered: {{ .DESTINATION }}"
+
+  render-kustomize-base:
+    desc: Render kustomize base from KCL deployment manifests
+    vars:
+      SOURCE: '{{ .SOURCE | default .KCL_SOURCE_DIR }}'
+      PROFILE: '{{ .PROFILE | default .KCL_PROFILE_FILE }}'
+      DESTINATION: '{{ .DESTINATION | default .KUSTOMIZE_BASE_EXPORT_PATH }}'
+    cmds:
+      - |
+        echo "Rendering kustomize base with KCL..."
+
+        dagger call -m {{ .DAGGER_KCL_MODULE }} render-kustomize-base \
+          --source "{{ .SOURCE }}" \
+          --parameters-file="{{ .PROFILE }}" \
+          export --path="{{ .DESTINATION }}" \
+          --progress plain
+
+        echo "Kustomize base rendered: {{ .DESTINATION }}"
+        ls -la "{{ .DESTINATION }}/"
 
   push-kustomize-base:
     desc: Render and push kustomize base as OCI artifact
@@ -134,6 +181,9 @@ tasks:
         sh: 'gum input --placeholder "Enter version tag (e.g., v1.0.0)" --header "OCI TAG"'
     cmds:
       - |
+        echo "Pushing kustomize base as OCI artifact..."
+        echo "Target: {{ .KUSTOMIZE_OCI_REPO }}:{{ .TAG }}"
+
         dagger call -m {{ .DAGGER_KCL_MODULE }} push-kustomize-base \
           --source "{{ .SOURCE }}" \
           --parameters-file="{{ .PROFILE }}" \
@@ -142,6 +192,7 @@ tasks:
           --user env:GITHUB_USER \
           --password env:GITHUB_TOKEN \
           --progress plain
+
         echo "OCI artifact pushed: {{ .KUSTOMIZE_OCI_REPO }}:{{ .TAG }}"
 
   # === Release ===

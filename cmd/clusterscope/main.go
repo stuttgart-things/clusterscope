@@ -61,7 +61,7 @@ Examples:
 				fmt.Fprintf(os.Stderr, "error creating output file: %v\n", err)
 				os.Exit(1)
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			w = f
 		}
 
@@ -84,7 +84,7 @@ Examples:
 				fmt.Fprintf(os.Stderr, "error creating output file: %v\n", err)
 				os.Exit(1)
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			w = f
 		}
 

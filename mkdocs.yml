@@ -1,0 +1,52 @@
+---
+site_name: clusterscope
+site_description: Technology-agnostic GitOps cluster visualizer CLI + server
+site_url: https://stuttgart-things.github.io/clusterscope/
+repo_url: https://github.com/stuttgart-things/clusterscope
+repo_name: stuttgart-things/clusterscope
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: blue
+    accent: cyan
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - search.highlight
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage:
+      - CLI Reference: usage.md
+      - Serve Mode: serve.md
+      - Live Mode: live.md
+      - PDF Export: pdf.md
+  - Configuration:
+      - repos.yaml: configuration.md
+      - KCL Deployment: kcl.md
+  - Architecture: architecture.md
+  - Contributing: contributing.md

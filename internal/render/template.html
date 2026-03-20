@@ -212,7 +212,8 @@
       {{else}}
         <div class="flux-badge mixed">🔀 Mixed GitOps</div>
       {{end}}
-      <button class="print-btn" onclick="window.print()">🖨 Print / Save as PDF</button>
+      <button class="print-btn" onclick="window.print()">🖨 Print</button>
+      <a class="print-btn" href="/pdf/{{.ClusterName}}" target="_blank" style="text-decoration:none">⬇ Download PDF</a>
       {{if .LiveRefreshed}}<div class="live-badge">🟢 Live · {{.LiveRefreshed}}</div>{{end}}
     </div>
   </div>

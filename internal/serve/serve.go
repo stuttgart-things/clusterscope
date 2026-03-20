@@ -86,6 +86,7 @@ func Start(addr, root string, opts Options) error {
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/api/clusters", s.handleAPIclusters)
 	mux.HandleFunc("/clusters/", s.handleCluster)
+	mux.HandleFunc("/pdf/", s.handlePDF)
 
 	log.Printf("clusterscope serving on %s  root=%s", addr, root)
 	return http.ListenAndServe(addr, mux) //nolint:gosec

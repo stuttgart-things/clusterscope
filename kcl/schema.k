@@ -16,9 +16,9 @@ schema ClusterScope:
     # Replicas and resources
     replicas: int = 1
     cpuRequest: str = "50m"
-    cpuLimit: str = "200m"
-    memoryRequest: str = "64Mi"
-    memoryLimit: str = "256Mi"
+    cpuLimit: str = "500m"
+    memoryRequest: str = "128Mi"
+    memoryLimit: str = "512Mi"
 
     # Serve mode port
     port: int = 8080

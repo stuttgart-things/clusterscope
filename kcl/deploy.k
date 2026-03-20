@@ -16,7 +16,6 @@ _gitSyncContainer = {
         "--root=/data"
         "--period={}".format(config.gitSyncPeriod)
         "--depth=1"
-        "--link=current"
     ]
     env: [
         {
@@ -162,8 +161,7 @@ deployment = {
                             }
                             {
                                 name: "gitdata"
-                                mountPath: config.dir
-                                readOnly: True
+                                mountPath: "/data"
                             }
                         ]
                     }

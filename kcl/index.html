@@ -729,10 +729,32 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#render-manifests" class="md-nav__link">
+  <a href="#generated-resources" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Render manifests
+        Generated resources
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-via-task" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploy via task
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-manually" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploy manually
       
     </span>
   </a>
@@ -751,10 +773,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#generated-resources" class="md-nav__link">
+  <a href="#configuration-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Generated resources
+        Configuration reference
       
     </span>
   </a>
@@ -773,10 +795,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#kustomize-oci-push" class="md-nav__link">
+  <a href="#httproute" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Kustomize OCI push
+        HTTPRoute
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#render-only-inspect-before-applying" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Render only (inspect before applying)
       
     </span>
   </a>
@@ -880,10 +913,32 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#render-manifests" class="md-nav__link">
+  <a href="#generated-resources" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Render manifests
+        Generated resources
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-via-task" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploy via task
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-manually" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploy manually
       
     </span>
   </a>
@@ -902,10 +957,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#generated-resources" class="md-nav__link">
+  <a href="#configuration-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Generated resources
+        Configuration reference
       
     </span>
   </a>
@@ -924,10 +979,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#kustomize-oci-push" class="md-nav__link">
+  <a href="#httproute" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Kustomize OCI push
+        HTTPRoute
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#render-only-inspect-before-applying" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Render only (inspect before applying)
       
     </span>
   </a>
@@ -955,74 +1021,244 @@
 
 
 <h1 id="kcl-deployment">KCL Deployment</h1>
-<p>clusterscope ships with a <a href="https://kcl-lang.io/">KCL</a> deployment module that generates the Kubernetes manifests for running it as a server with an optional git-sync sidecar.</p>
-<h2 id="render-manifests">Render manifests</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Interactive (uses gum for prompts)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>task<span class="w"> </span>render-manifests
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Non-interactive with defaults</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>task<span class="w"> </span>render-manifests-quick
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># With custom profile</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>task<span class="w"> </span>render-manifests-quick<span class="w"> </span><span class="nv">PROFILE</span><span class="o">=</span>tests/kcl-deploy-profile.yaml
-</code></pre></div>
-<h2 id="deployment-profile">Deployment profile</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># tests/kcl-deploy-profile.yaml</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">config</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/stuttgart-things/clusterscope:latest</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterscope</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">serviceType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterIP</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">rootPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/clusters</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">servePort</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;8080&quot;</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="c1"># git-sync sidecar</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">gitSyncEnabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">gitSyncImage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">registry.k8s.io/git-sync/git-sync:v4.4.0</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span><span class="nt">reposConfig</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/git-sync/repos.yaml</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="nt">repoAuthSecrets</span><span class="p">:</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gitops-repo-secret</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="nt">labels</span><span class="p">:</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterscope</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">  </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latest</span>
-</code></pre></div>
+<p>clusterscope ships with a <a href="https://kcl-lang.io/">KCL</a> deployment module (<code>kcl/</code>) that generates all Kubernetes manifests including an optional git-sync sidecar and HTTPRoute.</p>
 <h2 id="generated-resources">Generated resources</h2>
 <table>
 <thead>
 <tr>
 <th>Resource</th>
+<th>Kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clusterscope</code></td>
+<td>Namespace</td>
+</tr>
+<tr>
+<td><code>clusterscope</code></td>
+<td>ServiceAccount</td>
+</tr>
+<tr>
+<td><code>clusterscope</code></td>
+<td>ClusterRole</td>
+</tr>
+<tr>
+<td><code>clusterscope</code></td>
+<td>ClusterRoleBinding</td>
+</tr>
+<tr>
+<td><code>clusterscope</code></td>
+<td>Service</td>
+</tr>
+<tr>
+<td><code>clusterscope</code></td>
+<td>Deployment</td>
+</tr>
+<tr>
+<td><code>clusterscope</code></td>
+<td>HTTPRoute <em>(optional, when <code>httpRouteEnabled: true</code>)</em></td>
+</tr>
+</tbody>
+</table>
+<h2 id="deploy-via-task">Deploy via task</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Deploy (uses KUBECONFIG env)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>task<span class="w"> </span>deploy
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Deploy with custom kubeconfig</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nv">KUBECONFIG_PATH</span><span class="o">=</span>~/.kube/my-cluster<span class="w"> </span>task<span class="w"> </span>deploy
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Deploy with custom profile</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nv">PROFILE</span><span class="o">=</span>tests/my-profile.yaml<span class="w"> </span><span class="nv">KUBECONFIG_PATH</span><span class="o">=</span>~/.kube/my-cluster<span class="w"> </span>task<span class="w"> </span>deploy
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Undeploy (removes all resources)</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nv">KUBECONFIG_PATH</span><span class="o">=</span>~/.kube/my-cluster<span class="w"> </span>task<span class="w"> </span>undeploy
+</code></pre></div>
+<h2 id="deploy-manually">Deploy manually</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kcl<span class="w"> </span>run<span class="w"> </span>kcl/<span class="w"> </span>-Y<span class="w"> </span>tests/kcl-deploy-profile.yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="s2">import sys, yaml</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="s2">data = yaml.safe_load(sys.stdin)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="s2">for m in data.get(&#39;manifests&#39;, []):</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="s2">    print(&#39;---&#39;)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="s2">    print(yaml.dump(m, default_flow_style=False))</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-
+</code></pre></div>
+<p>echo "done"! note
+    KCL outputs a single YAML document with a <code>manifests:</code> list. <code>kubectl apply</code> requires separate YAML documents - the Python snippet splits them correctly.</p>
+<h2 id="deployment-profile">Deployment profile</h2>
+<p>Configuration is passed via a YAML file using KCL's <code>kcl_options</code> format:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># tests/kcl-deploy-profile.yaml</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kcl_options</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.image</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/stuttgart-things/clusterscope:latest</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.namespace</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterscope</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.tech</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">flux</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.dir</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/harvester/clusters</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.port</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;8080&quot;</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.replicas</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1&quot;</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">  </span><span class="c1"># git-sync sidecar</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.gitSyncEnabled</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.gitSyncRepo</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/org/repo</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.gitSyncBranch</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">main</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.gitSyncPeriod</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60s</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">  </span><span class="c1"># HTTPRoute (Gateway API)</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.httpRouteEnabled</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.gatewayName</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-gateway</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.gatewayNamespace</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.hostname</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterscope</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">config.domain</span>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.com</span>
+</code></pre></div>
+<h2 id="configuration-reference">Configuration reference</h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>Deployment</code></td>
-<td>clusterscope server + optional git-sync sidecar</td>
+<td><code>config.name</code></td>
+<td><code>clusterscope</code></td>
+<td>Resource name</td>
 </tr>
 <tr>
-<td><code>Service</code></td>
-<td>Exposes the HTTP dashboard</td>
+<td><code>config.namespace</code></td>
+<td><code>clusterscope</code></td>
+<td>Kubernetes namespace</td>
 </tr>
 <tr>
-<td><code>ConfigMap</code></td>
-<td>repos.yaml configuration</td>
+<td><code>config.image</code></td>
+<td><code>ghcr.io/stuttgart-things/clusterscope:latest</code></td>
+<td>Container image</td>
+</tr>
+<tr>
+<td><code>config.imagePullPolicy</code></td>
+<td><code>IfNotPresent</code></td>
+<td>Image pull policy</td>
+</tr>
+<tr>
+<td><code>config.replicas</code></td>
+<td><code>1</code></td>
+<td>Number of replicas</td>
+</tr>
+<tr>
+<td><code>config.port</code></td>
+<td><code>8080</code></td>
+<td>HTTP serve port</td>
+</tr>
+<tr>
+<td><code>config.dir</code></td>
+<td><code>/data</code></td>
+<td>Path inside container to scan for GitOps manifests</td>
+</tr>
+<tr>
+<td><code>config.tech</code></td>
+<td><code>flux</code></td>
+<td>GitOps technology: <code>flux</code> or <code>argocd</code></td>
+</tr>
+<tr>
+<td><code>config.gitSyncEnabled</code></td>
+<td><code>false</code></td>
+<td>Enable git-sync sidecar</td>
+</tr>
+<tr>
+<td><code>config.gitSyncImage</code></td>
+<td><code>registry.k8s.io/git-sync/git-sync:v4.4.0</code></td>
+<td>git-sync image</td>
+</tr>
+<tr>
+<td><code>config.gitSyncRepo</code></td>
+<td><code>""</code></td>
+<td>Git repository URL to sync</td>
+</tr>
+<tr>
+<td><code>config.gitSyncBranch</code></td>
+<td><code>main</code></td>
+<td>Branch/ref to sync</td>
+</tr>
+<tr>
+<td><code>config.gitSyncPeriod</code></td>
+<td><code>60s</code></td>
+<td>Sync interval</td>
+</tr>
+<tr>
+<td><code>config.httpRouteEnabled</code></td>
+<td><code>false</code></td>
+<td>Create HTTPRoute (Gateway API)</td>
+</tr>
+<tr>
+<td><code>config.gatewayName</code></td>
+<td><code>""</code></td>
+<td>Gateway name to attach the HTTPRoute to</td>
+</tr>
+<tr>
+<td><code>config.gatewayNamespace</code></td>
+<td><code>default</code></td>
+<td>Namespace of the Gateway</td>
+</tr>
+<tr>
+<td><code>config.hostname</code></td>
+<td><code>""</code></td>
+<td>Hostname prefix (e.g. <code>clusterscope</code>)</td>
+</tr>
+<tr>
+<td><code>config.domain</code></td>
+<td><code>""</code></td>
+<td>Domain (e.g. <code>example.com</code>) - URL: <code>hostname.domain</code></td>
 </tr>
 </tbody>
 </table>
 <h2 id="git-sync-sidecar">git-sync sidecar</h2>
-<p>When <code>gitSyncEnabled: true</code>, a git-sync container is added alongside the clusterscope container:</p>
-<ul>
-<li>Mounts a shared <code>emptyDir</code> volume at <code>/data/clusters</code></li>
-<li>Reads <code>repos.yaml</code> from the ConfigMap mounted at <code>/etc/git-sync/</code></li>
-<li>Periodically syncs the configured Git repositories into the shared volume</li>
-<li>clusterscope reads cluster YAML files from the synced directories</li>
-</ul>
-<h2 id="kustomize-oci-push">Kustomize OCI push</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>task<span class="w"> </span>push-kustomize-oci
+<p>When <code>gitSyncEnabled: true</code>, a git-sync sidecar is added. Both containers share an <code>emptyDir</code> volume at <code>/data</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pod
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>+-- container: clusterscope  (-root=/data/&lt;repo&gt;/clusters -tech=flux -serve=:8080)
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>|   +-- volumeMount: gitdata -&gt; /data
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>+-- container: git-sync      (--repo=... --ref=main --root=/data --period=60s)
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    +-- volumeMount: gitdata -&gt; /data
 </code></pre></div>
-<p>Pushes the rendered manifests as an OCI artifact to <code>ghcr.io/stuttgart-things/clusterscope-kustomize</code>.</p>
+<p>git-sync creates: <code>/data/&lt;repo-name&gt; -&gt; .worktrees/&lt;hash&gt;</code> (symlink).
+Set <code>config.dir</code> to the subfolder inside the repo that contains the cluster directories, e.g. <code>/data/harvester/clusters</code>.</p>
+<h2 id="httproute">HTTPRoute</h2>
+<p>When <code>httpRouteEnabled: true</code>, a <a href="https://gateway-api.sigs.k8s.io/">Gateway API</a> <code>HTTPRoute</code> is generated pointing to the clusterscope Service:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPRoute</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterscope</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterscope</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;gatewayName&gt;</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;gatewayNamespace&gt;</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nt">hostnames</span><span class="p">:</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;&lt;hostname&gt;.&lt;domain&gt;&quot;</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">backendRefs</span><span class="p">:</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterscope</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">          </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+</code></pre></div>
+<h2 id="render-only-inspect-before-applying">Render only (inspect before applying)</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Render to stdout</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kcl<span class="w"> </span>run<span class="w"> </span>kcl/<span class="w"> </span>-Y<span class="w"> </span>tests/kcl-deploy-profile.yaml
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Non-interactive render via task</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>task<span class="w"> </span>render-manifests-quick
+</code></pre></div>
 
 
 

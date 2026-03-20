@@ -1,4 +1,4 @@
-config.image: ghcr.io/stuttgart-things/clusterscope:latest
+config.image: ghcr.io/stuttgart-things/clusterscope:v0.1.3
 config.namespace: clusterscope
 config.tech: flux
 config.dir: /data

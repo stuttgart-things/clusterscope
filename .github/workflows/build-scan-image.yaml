@@ -39,11 +39,12 @@ jobs:
             --repository-name ${{ github.repository }}
             --tag ${{ steps.meta.outputs.commit }}
             --registry-url ghcr.io
-            --registry-username ${{ github.actor }}
+            --registry-username env:GITHUB_ACTOR
             --registry-password env:GITHUB_TOKEN
             --dockerfile Dockerfile
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
           DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}
 
       - name: Build & push latest tag
@@ -57,9 +58,10 @@ jobs:
             --repository-name ${{ github.repository }}
             --tag latest
             --registry-url ghcr.io
-            --registry-username ${{ github.actor }}
+            --registry-username env:GITHUB_ACTOR
             --registry-password env:GITHUB_TOKEN
             --dockerfile Dockerfile
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
           DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}

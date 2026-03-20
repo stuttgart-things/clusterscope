@@ -10,7 +10,20 @@ config = labels.config
 _gitSyncContainer = {
     name: "git-sync"
     image: config.gitSyncImage
-    args: ["--config=/etc/git-sync/repos.yaml"]
+    args: [
+        "--repo={}".format(config.gitSyncRepo)
+        "--ref={}".format(config.gitSyncBranch)
+        "--root=/data"
+        "--period={}".format(config.gitSyncPeriod)
+        "--depth=1"
+        "--link=current"
+    ]
+    env: [
+        {
+            name: "GITSYNC_ONE_TIME"
+            value: "false"
+        }
+    ]
     securityContext: {
         readOnlyRootFilesystem: True
         runAsNonRoot: True
@@ -36,9 +49,8 @@ _gitSyncContainer = {
             mountPath: "/data"
         }
         {
-            name: "repos-config"
-            mountPath: "/etc/git-sync"
-            readOnly: True
+            name: "git-sync-tmp"
+            mountPath: "/tmp"
         }
     ] + [
         {
@@ -50,13 +62,11 @@ _gitSyncContainer = {
     ]
 }
 
-# extra volumes for git-sync (repos ConfigMap + auth Secrets)
+# extra volumes for git-sync (tmp + auth Secrets)
 _gitSyncVolumes = [
     {
-        name: "repos-config"
-        configMap: {
-            name: "{}-repos".format(config.name)
-        }
+        name: "git-sync-tmp"
+        emptyDir: {}
     }
 ] + [
     {

@@ -31,11 +31,14 @@ schema ClusterScope:
 
     # Git-sync sidecar (Kubernetes serve mode)
     gitSyncEnabled: bool = False
-    gitSyncImage: str = "registry.k8s.io/git-sync/git-sync:v4"
+    gitSyncImage: str = "registry.k8s.io/git-sync/git-sync:v4.4.0"
 
-    # Content of repos.yaml to be mounted as ConfigMap for git-sync.
-    # When set, a ConfigMap named "<name>-repos" is created.
-    reposConfig: str = ""
+    # Git repository URL to sync
+    gitSyncRepo: str = ""
+    # Branch to sync
+    gitSyncBranch: str = "main"
+    # Sync interval (e.g. 60s, 5m)
+    gitSyncPeriod: str = "60s"
 
     # Names of Kubernetes Secrets containing auth credentials for git-sync.
     # Each secret is mounted at /etc/git-sync-secrets/<secret-name>/

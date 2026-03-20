@@ -7,7 +7,6 @@ import namespace
 import serviceaccount
 import clusterrole
 import service
-import configmaprepos as cmrepos
 import deploy
 
 # Export all manifests (filter out None values)
@@ -18,7 +17,6 @@ manifests = [
         clusterrole.clusterRole
         clusterrole.clusterRoleBinding
         service.service
-        cmrepos.configMapRepos
         deploy.deployment
     ] if m
 ]

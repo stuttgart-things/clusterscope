@@ -1,26 +1,21 @@
-config.image: ghcr.io/stuttgart-things/clusterscope:latest
-config.namespace: clusterscope
-config.tech: flux
-config.dir: /data
-config.port: 8080
-config.replicas: 1
-# Git-sync sidecar (enable for Kubernetes deployments)
-# config.gitSyncEnabled: "true"
-# config.reposConfig: |
-#   repos:
-#     - name: stuttgart-things-clusters
-#       url: https://github.com/stuttgart-things/clusters
-#       branch: main
-#       paths:
-#         - clusters/labul
-#         - clusters/labda
-#       syncInterval: 60s
-#     - name: private-infra
-#       url: https://github.com/acme/infra-clusters
-#       branch: main
-#       paths:
-#         - environments/prod
-#       syncInterval: 120s
-#       auth:
-#         type: token
-#         secretRef: infra-git-token
+kcl_options:
+  - key: config.image
+    value: ghcr.io/stuttgart-things/clusterscope:latest
+  - key: config.namespace
+    value: clusterscope
+  - key: config.tech
+    value: flux
+  - key: config.dir
+    value: /data
+  - key: config.port
+    value: "8080"
+  - key: config.replicas
+    value: "1"
+  - key: config.gitSyncEnabled
+    value: "true"
+  - key: config.gitSyncRepo
+    value: https://github.com/stuttgart-things/harvester
+  - key: config.gitSyncBranch
+    value: main
+  - key: config.gitSyncPeriod
+    value: 60s

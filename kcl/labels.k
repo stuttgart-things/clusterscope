@@ -13,7 +13,9 @@ _tech = option("config.tech")
 _replicas = option("config.replicas")
 _gitSyncEnabled = option("config.gitSyncEnabled")
 _gitSyncImage = option("config.gitSyncImage")
-_reposConfig = option("config.reposConfig")
+_gitSyncRepo = option("config.gitSyncRepo")
+_gitSyncBranch = option("config.gitSyncBranch")
+_gitSyncPeriod = option("config.gitSyncPeriod")
 
 # Config instance with command-line overrides
 config: schema.ClusterScope = schema.ClusterScope {
@@ -33,8 +35,12 @@ config: schema.ClusterScope = schema.ClusterScope {
         gitSyncEnabled = _gitSyncEnabled == True or str(_gitSyncEnabled) in ["true", "True", "1"]
     if _gitSyncImage:
         gitSyncImage = _gitSyncImage
-    if _reposConfig:
-        reposConfig = _reposConfig
+    if _gitSyncRepo:
+        gitSyncRepo = _gitSyncRepo
+    if _gitSyncBranch:
+        gitSyncBranch = _gitSyncBranch
+    if _gitSyncPeriod:
+        gitSyncPeriod = _gitSyncPeriod
 }
 
 # Common labels applied to all resources

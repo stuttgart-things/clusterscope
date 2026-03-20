@@ -8,6 +8,7 @@ import serviceaccount
 import clusterrole
 import service
 import deploy
+import httproute
 
 # Export all manifests (filter out None values)
 manifests = [
@@ -18,5 +19,6 @@ manifests = [
         clusterrole.clusterRoleBinding
         service.service
         deploy.deployment
+        httproute.httpRoute
     ] if m
 ]

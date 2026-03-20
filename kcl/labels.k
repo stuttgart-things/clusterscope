@@ -16,6 +16,11 @@ _gitSyncImage = option("config.gitSyncImage")
 _gitSyncRepo = option("config.gitSyncRepo")
 _gitSyncBranch = option("config.gitSyncBranch")
 _gitSyncPeriod = option("config.gitSyncPeriod")
+_httpRouteEnabled = option("config.httpRouteEnabled")
+_gatewayName = option("config.gatewayName")
+_gatewayNamespace = option("config.gatewayNamespace")
+_hostname = option("config.hostname")
+_domain = option("config.domain")
 
 # Config instance with command-line overrides
 config: schema.ClusterScope = schema.ClusterScope {
@@ -41,6 +46,16 @@ config: schema.ClusterScope = schema.ClusterScope {
         gitSyncBranch = _gitSyncBranch
     if _gitSyncPeriod:
         gitSyncPeriod = _gitSyncPeriod
+    if _httpRouteEnabled:
+        httpRouteEnabled = _httpRouteEnabled == True or str(_httpRouteEnabled) in ["true", "True", "1"]
+    if _gatewayName:
+        gatewayName = _gatewayName
+    if _gatewayNamespace:
+        gatewayNamespace = _gatewayNamespace
+    if _hostname:
+        hostname = _hostname
+    if _domain:
+        domain = _domain
 }
 
 # Common labels applied to all resources

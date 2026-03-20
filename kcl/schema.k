@@ -44,6 +44,13 @@ schema ClusterScope:
     # Each secret is mounted at /etc/git-sync-secrets/<secret-name>/
     repoAuthSecrets: [str] = []
 
+    # HTTPRoute (Gateway API)
+    httpRouteEnabled: bool = False
+    gatewayName: str = ""
+    gatewayNamespace: str = "default"
+    hostname: str = ""
+    domain: str = ""
+
     # Labels and annotations
     labels: {str:str} = {}
     annotations: {str:str} = {}

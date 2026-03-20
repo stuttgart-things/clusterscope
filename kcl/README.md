@@ -51,6 +51,11 @@ kcl/
 | `config.gitSyncRepo` | `""` | Git repository URL to sync |
 | `config.gitSyncBranch` | `main` | Branch/ref to sync |
 | `config.gitSyncPeriod` | `60s` | Sync interval |
+| `config.httpRouteEnabled` | `false` | Create HTTPRoute (Gateway API) |
+| `config.gatewayName` | `""` | Gateway name |
+| `config.gatewayNamespace` | `default` | Namespace of the Gateway |
+| `config.hostname` | `""` | Hostname prefix |
+| `config.domain` | `""` | Domain → URL: `hostname.domain` |
 | `config.cpuRequest` | `50m` | CPU request |
 | `config.cpuLimit` | `500m` | CPU limit |
 | `config.memoryRequest` | `128Mi` | Memory request |
@@ -85,6 +90,16 @@ kcl_options:
     value: main
   - key: config.gitSyncPeriod
     value: 60s
+  - key: config.httpRouteEnabled
+    value: "true"
+  - key: config.gatewayName
+    value: movie-scripts2-gateway
+  - key: config.gatewayNamespace
+    value: default
+  - key: config.hostname
+    value: clusterscope
+  - key: config.domain
+    value: movie-scripts2.sthings-vsphere.labul.sva.de
 ```
 
 > **Note on `config.dir`**: In Kubernetes serve mode (`-serve` + git-sync), `config.dir` must point to the subfolder *inside* the synced repository that contains the cluster directories.

@@ -148,53 +148,31 @@
   /* ═══════════ PRINT / PDF STYLES ═══════════ */
   .print-only{display:none}
   @media print{
-    *{box-sizing:border-box}
-    body{background:#fff!important;color:#000!important;font-size:11pt;font-family:'Segoe UI',Arial,sans-serif}
-    .poster{padding:0;gap:12pt;max-width:100%}
+    /* Force background colors + full width */
+    *{box-sizing:border-box;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    body{font-size:10pt;font-family:'Segoe UI',Arial,sans-serif}
+    .poster{padding:0;gap:10pt;max-width:100%}
+    /* Page: landscape for widescreen layout */
+    @page{margin:1cm;size:A4 landscape}
     /* Hide interactive elements */
     .filter-bar,.toggle-btn,.reset-btn,.search-box,
-    #section-graph,#detail-panel,.print-btn,
+    #detail-panel,.print-btn,
     .flux-comp-chip,.section-wrapper#section-controllers{display:none!important}
-    /* Header: light on white */
-    .header{background:#f6f8fa!important;border:1px solid #d0d7de!important;
-      border-left:4px solid #0969da!important;border-radius:6pt;padding:12pt 16pt}
-    .header-left h1{color:#0969da!important;font-size:18pt}
-    .header-left h1 span{color:#24292f!important}
-    .subtitle{color:#57606a!important}
-    .subtitle span{color:#57606a!important}
-    .dot{background:#1a7f37!important;box-shadow:none!important;animation:none!important}
-    .flux-badge{background:#f6f8fa!important;border:1px solid #d0d7de!important;
-      color:#24292f!important;border-radius:4pt;font-size:9pt}
-    /* Section titles */
-    .section-title{color:#24292f!important;border-bottom:1pt solid #d0d7de;padding-bottom:4pt;margin-bottom:8pt}
-    .section-title::after{background:#d0d7de!important}
-    /* Git sources */
-    .git-repo-card{background:#f6f8fa!important;border:1pt solid #d0d7de!important;border-radius:4pt}
-    .repo-label{color:#0969da!important}
-    .repo-url,.repo-branch{color:#57606a!important}
-    /* Layer cards */
-    .layer-column{background:#f6f8fa!important;border:1pt solid #d0d7de!important;
-      border-top:3pt solid #0969da!important;border-radius:4pt;break-inside:avoid}
-    .kust-card{background:#fff!important;border:1pt solid #d0d7de!important;break-inside:avoid}
-    .kust-name{color:#24292f!important}
-    .kust-path{color:#57606a!important}
-    .kust-tag{color:#57606a!important;border-color:#d0d7de!important}
-    .kust-version{color:#57606a!important;border-color:#d0d7de!important}
-    /* ArgoCD cards */
-    .argo-app-card,.argo-appset-card,.argo-project-card{
-      background:#f6f8fa!important;border:1pt solid #d0d7de!important;break-inside:avoid}
-    /* HomeRun */
-    .homerun-comp{background:#f6f8fa!important;border:1pt solid #d0d7de!important;break-inside:avoid}
-    .comp-name,.comp-version{color:#24292f!important}
+    /* Keep graph visible in print */
+    #section-graph{display:block!important}
+    svg#graph{width:100%!important;max-height:280pt}
+    /* Layer cards: keep dark style, allow multi-column across page */
+    .layers-grid{grid-template-columns:repeat(3,1fr)}
+    .layer-column{break-inside:avoid}
+    .kust-card{break-inside:avoid}
+    .argo-app-card,.argo-appset-card,.argo-project-card{break-inside:avoid}
+    .homerun-comp{break-inside:avoid}
     /* Print-only summary table */
     .print-only{display:block!important}
-    .print-table{width:100%;border-collapse:collapse;font-size:9pt;margin-top:6pt}
-    .print-table th{background:#f6f8fa;border:1pt solid #d0d7de;padding:4pt 8pt;
-      text-align:left;font-weight:600;color:#24292f}
-    .print-table td{border:1pt solid #d0d7de;padding:3pt 8pt;color:#24292f;vertical-align:top}
-    .print-table tr:nth-child(even) td{background:#f6f8fa}
-    /* Page settings */
-    @page{margin:1.5cm;size:A4}
+    .print-table{width:100%;border-collapse:collapse;font-size:8pt;margin-top:6pt}
+    .print-table th{padding:3pt 6pt;text-align:left;font-weight:600}
+    .print-table td{padding:2pt 6pt;vertical-align:top}
+    /* Page breaks */
     h2{page-break-before:always;margin-top:0}
     h2:first-of-type{page-break-before:avoid}
     .build-footer{display:none!important}

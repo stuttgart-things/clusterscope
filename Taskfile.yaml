@@ -167,6 +167,42 @@ tasks:
       - pip install mkdocs-material --quiet
       - mkdocs build
 
+  deploy:
+    desc: Deploy clusterscope to Kubernetes via KCL (profile file configurable)
+    vars:
+      PROFILE: '{{ .PROFILE | default "tests/kcl-deploy-profile.yaml" }}'
+      KUBECONFIG_PATH: '{{ .KUBECONFIG_PATH | default (env "KUBECONFIG") }}'
+    cmds:
+      - |
+        echo "Deploying clusterscope via KCL..."
+        echo "  Profile   : {{ .PROFILE }}"
+        echo "  Kubeconfig: {{ .KUBECONFIG_PATH }}"
+        kcl run kcl/ -Y {{ .PROFILE }} | python3 -c "
+        import sys, yaml
+        data = yaml.safe_load(sys.stdin)
+        for m in data.get('manifests', []):
+            print('---')
+            print(yaml.dump(m, default_flow_style=False))
+        " | kubectl --kubeconfig "{{ .KUBECONFIG_PATH }}" apply -f -
+        echo "Deploy complete."
+
+  undeploy:
+    desc: Remove clusterscope deployment from Kubernetes
+    vars:
+      PROFILE: '{{ .PROFILE | default "tests/kcl-deploy-profile.yaml" }}'
+      KUBECONFIG_PATH: '{{ .KUBECONFIG_PATH | default (env "KUBECONFIG") }}'
+    cmds:
+      - |
+        echo "Removing clusterscope deployment..."
+        kcl run kcl/ -Y {{ .PROFILE }} | python3 -c "
+        import sys, yaml
+        data = yaml.safe_load(sys.stdin)
+        for m in data.get('manifests', []):
+            print('---')
+            print(yaml.dump(m, default_flow_style=False))
+        " | kubectl --kubeconfig "{{ .KUBECONFIG_PATH }}" delete --ignore-not-found -f -
+        echo "Undeploy complete."
+
   trigger-release:
     desc: Trigger Release workflow on GitHub Actions
     cmds:

@@ -1,0 +1,19 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: clusterscope
+  namespace: clusterscope
+spec:
+  parentRefs:
+    - name: movie-scripts2-gateway
+      namespace: default
+  hostnames:
+    - clusterscope.movie-scripts2.sthings-vsphere.labul.sva.de
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: clusterscope
+          port: 8080

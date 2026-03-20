@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clusterscope
+  namespace: clusterscope
+spec:
+  template:
+    spec:
+      containers:
+        - name: clusterscope
+          args:
+            - '-root=/data/harvester/clusters'
+            - '-tech=flux'
+            - '-serve=:8080'
+        - name: git-sync
+          image: registry.k8s.io/git-sync/git-sync:v4.4.0
+          args:
+            - '--repo=https://github.com/stuttgart-things/harvester'
+            - '--ref=main'
+            - '--root=/data'
+            - '--period=60s'
+            - '--depth=1'
+          env:
+            - name: GITSYNC_ONE_TIME
+              value: "false"
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsUser: 65533
+          volumeMounts:
+            - name: gitdata
+              mountPath: /data
+            - name: git-sync-tmp
+              mountPath: /tmp
+      volumes:
+        - name: git-sync-tmp
+          emptyDir: {}

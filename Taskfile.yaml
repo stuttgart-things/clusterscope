@@ -203,6 +203,41 @@ tasks:
         " | kubectl --kubeconfig "{{ .KUBECONFIG_PATH }}" delete --ignore-not-found -f -
         echo "Undeploy complete."
 
+  deploy-kustomize:
+    desc: Deploy clusterscope via OCI Kustomize artifact + overlay
+    vars:
+      OCI_REPO: '{{ .OCI_REPO | default "ghcr.io/stuttgart-things/clusterscope-kustomize" }}'
+      OCI_TAG: '{{ .OCI_TAG | default "v0.6.0" }}'
+      OVERLAY: '{{ .OVERLAY | default "tests/kustomize-overlay" }}'
+      KUBECONFIG_PATH: '{{ .KUBECONFIG_PATH | default (env "KUBECONFIG") }}'
+    cmds:
+      - |
+        echo "Pulling OCI base {{ .OCI_REPO }}:{{ .OCI_TAG }}..."
+        rm -rf {{ .OVERLAY }}/base
+        mkdir -p {{ .OVERLAY }}/base
+        oras pull "{{ .OCI_REPO }}:{{ .OCI_TAG }}" -o "{{ .OVERLAY }}/base"
+        echo "Applying overlay..."
+        kubectl --kubeconfig "{{ .KUBECONFIG_PATH }}" apply -k "{{ .OVERLAY }}/"
+        echo "Deploy complete."
+
+  undeploy-kustomize:
+    desc: Remove clusterscope deployment deployed via Kustomize overlay
+    vars:
+      OCI_REPO: '{{ .OCI_REPO | default "ghcr.io/stuttgart-things/clusterscope-kustomize" }}'
+      OCI_TAG: '{{ .OCI_TAG | default "v0.6.0" }}'
+      OVERLAY: '{{ .OVERLAY | default "tests/kustomize-overlay" }}'
+      KUBECONFIG_PATH: '{{ .KUBECONFIG_PATH | default (env "KUBECONFIG") }}'
+    cmds:
+      - |
+        echo "Removing clusterscope deployment..."
+        if [ ! -d "{{ .OVERLAY }}/base" ]; then
+          mkdir -p {{ .OVERLAY }}/base
+          oras pull "{{ .OCI_REPO }}:{{ .OCI_TAG }}" -o "{{ .OVERLAY }}/base"
+        fi
+        kubectl --kubeconfig "{{ .KUBECONFIG_PATH }}" delete -k "{{ .OVERLAY }}/" --ignore-not-found
+        rm -rf {{ .OVERLAY }}/base
+        echo "Undeploy complete."
+
   trigger-release:
     desc: Trigger Release workflow on GitHub Actions
     cmds:

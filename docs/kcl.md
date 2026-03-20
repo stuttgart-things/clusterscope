@@ -155,3 +155,98 @@ kcl run kcl/ -Y tests/kcl-deploy-profile.yaml
 # Non-interactive render via task
 task render-manifests-quick
 ```
+
+---
+
+## Alternative: Deploy via OCI Kustomize artifact
+
+Instead of rendering with KCL locally, you can deploy using the pre-built Kustomize OCI artifact published to `ghcr.io/stuttgart-things/clusterscope-kustomize`.
+
+### Prerequisites
+
+- [`oras`](https://oras.land/) CLI for pulling OCI artifacts
+
+### Overlay structure
+
+```
+tests/kustomize-overlay/
+├── kustomization.yaml      # references ./base + patches
+├── deployment-patch.yaml   # strategic merge patch (git-sync sidecar, args)
+└── httproute.yaml          # HTTPRoute (cluster-specific)
+    base/                   # populated by task deploy-kustomize (git-ignored)
+```
+
+### Deploy via task
+
+```bash
+# Deploy (pulls OCI base + applies overlay)
+KUBECONFIG_PATH=~/.kube/my-cluster task deploy-kustomize
+
+# Deploy with custom OCI tag
+OCI_TAG=v0.6.0 KUBECONFIG_PATH=~/.kube/my-cluster task deploy-kustomize
+
+# Undeploy
+KUBECONFIG_PATH=~/.kube/my-cluster task undeploy-kustomize
+```
+
+### Deploy manually
+
+```bash
+# 1. Pull OCI base
+mkdir -p tests/kustomize-overlay/base
+oras pull ghcr.io/stuttgart-things/clusterscope-kustomize:v0.6.0 \
+  -o tests/kustomize-overlay/base
+
+# 2. Apply overlay (base + deployment-patch + httproute)
+kubectl apply -k tests/kustomize-overlay/
+```
+
+### Customize the overlay
+
+**`deployment-patch.yaml`** — strategic merge patch to add git-sync sidecar and set `-root`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clusterscope
+  namespace: clusterscope
+spec:
+  template:
+    spec:
+      containers:
+        - name: clusterscope
+          args:
+            - '-root=/data/<repo>/clusters'   # path inside synced repo
+            - '-tech=flux'
+            - '-serve=:8080'
+        - name: git-sync
+          image: registry.k8s.io/git-sync/git-sync:v4.4.0
+          args:
+            - '--repo=https://github.com/org/repo'
+            - '--ref=main'
+            - '--root=/data'
+            - '--period=60s'
+            - '--depth=1'
+          ...
+```
+
+**`httproute.yaml`** — HTTPRoute (adapt gateway name and hostname):
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: clusterscope
+  namespace: clusterscope
+spec:
+  parentRefs:
+    - name: my-gateway
+      namespace: default
+  hostnames:
+    - clusterscope.example.com
+  rules:
+    - backendRefs:
+        - name: clusterscope
+          port: 8080
+```

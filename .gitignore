@@ -33,3 +33,4 @@ go.work.sum
 
 # Task remote cache
 .task/
+tests/kustomize-overlay/base/

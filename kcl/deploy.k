@@ -109,7 +109,7 @@ deployment = {
                         image: config.image
                         imagePullPolicy: config.imagePullPolicy
                         args: [
-                            "-dir={}".format(config.dir)
+                            "-root={}".format(config.dir)
                             "-tech={}".format(config.tech)
                             "-serve=:{}".format(config.port)
                         ]

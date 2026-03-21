@@ -48,9 +48,12 @@ kcl/
 | `config.tech` | `flux` | GitOps technology: `flux` or `argocd` |
 | `config.gitSyncEnabled` | `false` | Enable git-sync sidecar |
 | `config.gitSyncImage` | `registry.k8s.io/git-sync/git-sync:v4.4.0` | git-sync image |
-| `config.gitSyncRepo` | `""` | Git repository URL to sync |
-| `config.gitSyncBranch` | `main` | Branch/ref to sync |
-| `config.gitSyncPeriod` | `60s` | Sync interval |
+| `config.gitSyncRepo` | `""` | Git repository URL to sync (single-repo mode) |
+| `config.gitSyncBranch` | `main` | Branch/ref to sync (single-repo mode) |
+| `config.gitSyncPeriod` | `60s` | Sync interval (single-repo mode) |
+| `config.gitSyncAuthSecretName` | `""` | K8s Secret name for private repo auth |
+| `config.gitSyncAuthType` | `https` | Auth type: `https` (token) or `ssh` |
+| `config.gitSyncRepos` | `[]` | List of repos for multi-repo mode (see below) |
 | `config.httpRouteEnabled` | `false` | Create HTTPRoute (Gateway API) |
 | `config.gatewayName` | `""` | Gateway name |
 | `config.gatewayNamespace` | `default` | Namespace of the Gateway |
@@ -161,6 +164,84 @@ clusterscope pod
 Both containers share the same `gitdata` emptyDir volume mounted at `/data`.
 git-sync creates: `/data/harvester → .worktrees/<hash>` (symlink).
 clusterscope reads: `/data/harvester/clusters/` via `-root`.
+
+---
+
+## Private repository authentication
+
+For private repositories, combine `gitSyncAuthSecretName` with `gitSyncAuthType`.
+
+### HTTPS (GitHub token / password)
+
+```bash
+kubectl create secret generic git-sync-auth \
+  --from-literal=username=token \
+  --from-literal=password=<GITHUB_TOKEN> \
+  -n clusterscope
+```
+
+```yaml
+- key: config.gitSyncAuthSecretName
+  value: git-sync-auth
+- key: config.gitSyncAuthType
+  value: https
+```
+
+### SSH key
+
+```bash
+kubectl create secret generic git-sync-ssh \
+  --from-file=ssh=/home/user/.ssh/id_rsa \
+  -n clusterscope
+```
+
+```yaml
+- key: config.gitSyncAuthSecretName
+  value: git-sync-ssh
+- key: config.gitSyncAuthType
+  value: ssh
+```
+
+---
+
+## Multi-repo mode
+
+To watch multiple repositories simultaneously, use `gitSyncRepos` (list) instead of `gitSyncRepo` (string).
+Each list entry creates a dedicated `git-sync-<subdir>` sidecar:
+
+```yaml
+- key: config.gitSyncEnabled
+  value: "true"
+- key: config.dir
+  value: /data
+- key: config.gitSyncRepos
+  value:
+    - repo: https://github.com/org/harvester
+      branch: main
+      subdir: harvester      # syncs into /data/harvester/
+      period: 60s
+    - repo: https://github.com/org/clusters
+      branch: main
+      subdir: st-clusters    # syncs into /data/st-clusters/
+      period: 120s
+      authSecretName: git-sync-auth   # optional: private repo
+      authType: https
+```
+
+Resulting pod:
+
+```
+clusterscope pod
+├── container: clusterscope           (-root=/data -tech=flux -serve=:8080)
+├── container: git-sync-harvester     (--root=/data/harvester)
+└── container: git-sync-st-clusters   (--root=/data/st-clusters)
+```
+
+clusterscope with `-root=/data` scans all subdirectories automatically.
+
+> **Backward compatible:** when `gitSyncRepos` is empty (default), the single-repo mode (`gitSyncRepo`/`gitSyncBranch`/`gitSyncPeriod`) is used as before.
+
+> **Profile example:** see `tests/kcl-multi-repo-profile.yaml`
 
 ---
 

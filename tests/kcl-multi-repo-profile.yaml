@@ -1,0 +1,27 @@
+kcl_options:
+  - key: config.image
+    value: ghcr.io/stuttgart-things/clusterscope:latest
+  - key: config.namespace
+    value: clusterscope
+  - key: config.tech
+    value: flux
+  - key: config.dir
+    value: /data
+  - key: config.port
+    value: "8080"
+  - key: config.replicas
+    value: "1"
+  - key: config.gitSyncEnabled
+    value: "true"
+  - key: config.gitSyncRepos
+    value:
+      - repo: https://github.com/stuttgart-things/harvester
+        branch: main
+        subdir: harvester
+        period: 60s
+      - repo: https://github.com/stuttgart-things/clusters
+        branch: main
+        subdir: st-clusters
+        period: 120s
+  - key: config.httpRouteEnabled
+    value: "false"

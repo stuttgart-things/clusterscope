@@ -6,10 +6,12 @@ import labels
 
 config = labels.config
 
-# Conditional SSH arg for git-sync
+# ── Single-repo helpers ──────────────────────────────────────────────────────
+
+# Conditional SSH arg for single-repo git-sync
 _sshArgs = ["--ssh-key-file=/etc/git-sync-secrets/{}/ssh".format(config.gitSyncAuthSecretName)] if config.gitSyncAuthSecretName != "" and config.gitSyncAuthType == "ssh" else []
 
-# Conditional HTTPS auth env vars for git-sync
+# Conditional HTTPS auth env vars for single-repo git-sync
 _authEnv = [
     {
         name: "GITSYNC_USERNAME"
@@ -31,7 +33,7 @@ _authEnv = [
     }
 ] if config.gitSyncAuthSecretName != "" and config.gitSyncAuthType == "https" else []
 
-# Conditional auth volume mount
+# Conditional auth volume mount (single-repo)
 _authVolumeMount = [
     {
         name: "secret-auth"
@@ -40,7 +42,7 @@ _authVolumeMount = [
     }
 ] if config.gitSyncAuthSecretName != "" else []
 
-# Conditional auth volume
+# Conditional auth volume (single-repo)
 _authVolume = [
     {
         name: "secret-auth"
@@ -50,7 +52,7 @@ _authVolume = [
     }
 ] if config.gitSyncAuthSecretName != "" else []
 
-# git-sync sidecar container (only added when gitSyncEnabled=true)
+# Single git-sync sidecar container (used when gitSyncEnabled=true and gitSyncRepos is empty)
 _gitSyncContainer = {
     name: "git-sync"
     image: config.gitSyncImage
@@ -105,7 +107,7 @@ _gitSyncContainer = {
     ] + _authVolumeMount
 }
 
-# extra volumes for git-sync (tmp + auth Secrets)
+# extra volumes for single git-sync (tmp + auth Secrets)
 _gitSyncVolumes = [
     {
         name: "git-sync-tmp"
@@ -120,6 +122,107 @@ _gitSyncVolumes = [
     }
     for s in config.repoAuthSecrets
 ] + _authVolume
+
+# ── Multi-repo helpers ───────────────────────────────────────────────────────
+
+# Build one git-sync container per entry in gitSyncRepos
+_multiGitSyncContainers = [
+    {
+        name: "git-sync-{}".format(r.subdir)
+        image: config.gitSyncImage
+        args: [
+            "--repo={}".format(r.repo)
+            "--ref={}".format(r.branch)
+            "--root=/data/{}".format(r.subdir)
+            "--period={}".format(r.period)
+            "--depth=1"
+        ] + (["--ssh-key-file=/etc/git-sync-secrets/{}/ssh".format(r.authSecretName)] if r.authSecretName != "" and r.authType == "ssh" else [])
+        env: [
+            {
+                name: "GITSYNC_ONE_TIME"
+                value: "false"
+            }
+        ] + ([
+            {
+                name: "GITSYNC_USERNAME"
+                valueFrom: {
+                    secretKeyRef: {
+                        name: r.authSecretName
+                        key: "username"
+                    }
+                }
+            }
+            {
+                name: "GITSYNC_PASSWORD"
+                valueFrom: {
+                    secretKeyRef: {
+                        name: r.authSecretName
+                        key: "password"
+                    }
+                }
+            }
+        ] if r.authSecretName != "" and r.authType == "https" else [])
+        securityContext: {
+            readOnlyRootFilesystem: True
+            runAsNonRoot: True
+            runAsUser: 65533
+            allowPrivilegeEscalation: False
+            capabilities: {
+                drop: ["ALL"]
+            }
+        }
+        resources: {
+            requests: {
+                cpu: "10m"
+                memory: "32Mi"
+            }
+            limits: {
+                cpu: "100m"
+                memory: "128Mi"
+            }
+        }
+        volumeMounts: [
+            {
+                name: "gitdata"
+                mountPath: "/data"
+            }
+            {
+                name: "git-sync-tmp-{}".format(r.subdir)
+                mountPath: "/tmp"
+            }
+        ] + ([
+            {
+                name: "secret-repo-{}".format(r.subdir)
+                mountPath: "/etc/git-sync-secrets/{}".format(r.authSecretName)
+                readOnly: True
+            }
+        ] if r.authSecretName != "" else [])
+    }
+    for r in config.gitSyncRepos
+]
+
+# Build volumes for each entry in gitSyncRepos
+_multiGitSyncVolumes = [
+    {
+        name: "git-sync-tmp-{}".format(r.subdir)
+        emptyDir: {}
+    }
+    for r in config.gitSyncRepos
+] + [
+    {
+        name: "secret-repo-{}".format(r.subdir)
+        secret: {
+            secretName: r.authSecretName
+        }
+    }
+    for r in config.gitSyncRepos if r.authSecretName != ""
+]
+
+# Choose between single-repo and multi-repo mode
+_isMultiRepo = len(config.gitSyncRepos) > 0
+_activeSyncContainers = _multiGitSyncContainers if _isMultiRepo else ([_gitSyncContainer] if config.gitSyncEnabled else [])
+_activeSyncVolumes = _multiGitSyncVolumes if _isMultiRepo else (_gitSyncVolumes if config.gitSyncEnabled else [])
+
 
 deployment = {
     apiVersion: "apps/v1"
@@ -209,7 +312,7 @@ deployment = {
                             }
                         ]
                     }
-                ] + ([_gitSyncContainer] if config.gitSyncEnabled else [])
+                ] + _activeSyncContainers
                 affinity: {
                     podAntiAffinity: {
                         preferredDuringSchedulingIgnoredDuringExecution: [
@@ -243,7 +346,7 @@ deployment = {
                         name: "gitdata"
                         emptyDir: {}
                     }
-                ] + (_gitSyncVolumes if config.gitSyncEnabled else [])
+                ] + _activeSyncVolumes
             }
         }
     }

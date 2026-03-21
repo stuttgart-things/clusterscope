@@ -19,6 +19,11 @@ kcl_options:
     value: main
   - key: config.gitSyncPeriod
     value: 60s
+  # Auth for private repos (optional):
+  # - key: config.gitSyncAuthSecretName
+  #   value: git-sync-auth          # K8s secret with keys: username + password (HTTPS) or ssh (SSH)
+  # - key: config.gitSyncAuthType
+  #   value: https                  # 'https' or 'ssh'
   - key: config.httpRouteEnabled
     value: "true"
   - key: config.gatewayName

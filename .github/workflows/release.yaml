@@ -21,3 +21,17 @@ jobs:
       kcl-profile-file: tests/kcl-deploy-profile.yaml
       kustomize-oci-repo: ghcr.io/stuttgart-things/clusterscope-kustomize
     secrets: inherit # pragma: allowlist secret
+
+  release-multi-repo:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    uses: stuttgart-things/github-workflow-templates/.github/workflows/call-go-release.yaml@main
+    with:
+      runs-on: ubuntu-latest
+      stage-image: false
+      push-kustomize: true
+      kcl-source-dir: kcl
+      kcl-profile-file: tests/kcl-multi-repo-prod-profile.yaml
+      kustomize-oci-repo: ghcr.io/stuttgart-things/clusterscope-kustomize-multi-repo
+    secrets: inherit # pragma: allowlist secret

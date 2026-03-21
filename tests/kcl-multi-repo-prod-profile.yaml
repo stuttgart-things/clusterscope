@@ -1,0 +1,35 @@
+kcl_options:
+  - key: config.image
+    value: ghcr.io/stuttgart-things/clusterscope:latest
+  - key: config.namespace
+    value: clusterscope
+  - key: config.tech
+    value: flux
+  - key: config.dir
+    value: /data
+  - key: config.port
+    value: "8080"
+  - key: config.replicas
+    value: "1"
+  - key: config.gitSyncEnabled
+    value: "true"
+  - key: config.gitSyncRepos
+    value:
+      - repo: https://github.com/stuttgart-things/harvester
+        branch: main
+        subdir: harvester
+        period: 60s
+      - repo: https://github.com/stuttgart-things/clusters
+        branch: main
+        subdir: st-clusters
+        period: 120s
+  - key: config.httpRouteEnabled
+    value: "true"
+  - key: config.gatewayName
+    value: movie-scripts2-gateway
+  - key: config.gatewayNamespace
+    value: default
+  - key: config.hostname
+    value: clusterscope
+  - key: config.domain
+    value: movie-scripts2.sthings-vsphere.labul.sva.de

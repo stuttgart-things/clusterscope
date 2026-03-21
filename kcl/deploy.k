@@ -6,6 +6,50 @@ import labels
 
 config = labels.config
 
+# Conditional SSH arg for git-sync
+_sshArgs = ["--ssh-key-file=/etc/git-sync-secrets/{}/ssh".format(config.gitSyncAuthSecretName)] if config.gitSyncAuthSecretName != "" and config.gitSyncAuthType == "ssh" else []
+
+# Conditional HTTPS auth env vars for git-sync
+_authEnv = [
+    {
+        name: "GITSYNC_USERNAME"
+        valueFrom: {
+            secretKeyRef: {
+                name: config.gitSyncAuthSecretName
+                key: "username"
+            }
+        }
+    }
+    {
+        name: "GITSYNC_PASSWORD"
+        valueFrom: {
+            secretKeyRef: {
+                name: config.gitSyncAuthSecretName
+                key: "password"
+            }
+        }
+    }
+] if config.gitSyncAuthSecretName != "" and config.gitSyncAuthType == "https" else []
+
+# Conditional auth volume mount
+_authVolumeMount = [
+    {
+        name: "secret-auth"
+        mountPath: "/etc/git-sync-secrets/{}".format(config.gitSyncAuthSecretName)
+        readOnly: True
+    }
+] if config.gitSyncAuthSecretName != "" else []
+
+# Conditional auth volume
+_authVolume = [
+    {
+        name: "secret-auth"
+        secret: {
+            secretName: config.gitSyncAuthSecretName
+        }
+    }
+] if config.gitSyncAuthSecretName != "" else []
+
 # git-sync sidecar container (only added when gitSyncEnabled=true)
 _gitSyncContainer = {
     name: "git-sync"
@@ -16,13 +60,13 @@ _gitSyncContainer = {
         "--root=/data"
         "--period={}".format(config.gitSyncPeriod)
         "--depth=1"
-    ]
+    ] + _sshArgs
     env: [
         {
             name: "GITSYNC_ONE_TIME"
             value: "false"
         }
-    ]
+    ] + _authEnv
     securityContext: {
         readOnlyRootFilesystem: True
         runAsNonRoot: True
@@ -58,7 +102,7 @@ _gitSyncContainer = {
             readOnly: True
         }
         for s in config.repoAuthSecrets
-    ]
+    ] + _authVolumeMount
 }
 
 # extra volumes for git-sync (tmp + auth Secrets)
@@ -75,7 +119,7 @@ _gitSyncVolumes = [
         }
     }
     for s in config.repoAuthSecrets
-]
+] + _authVolume
 
 deployment = {
     apiVersion: "apps/v1"

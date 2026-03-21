@@ -44,6 +44,14 @@ schema ClusterScope:
     # Each secret is mounted at /etc/git-sync-secrets/<secret-name>/
     repoAuthSecrets: [str] = []
 
+    # Authentication for private git repositories
+    # Name of the Kubernetes Secret containing auth credentials
+    # For HTTPS: secret must have keys 'username' and 'password'
+    # For SSH:   secret must have key 'ssh' (private key)
+    gitSyncAuthSecretName: str = ""
+    # Auth type: 'https' (token/password) or 'ssh'
+    gitSyncAuthType: str = "https"
+
     # HTTPRoute (Gateway API)
     httpRouteEnabled: bool = False
     gatewayName: str = ""
@@ -60,3 +68,4 @@ schema ClusterScope:
         name != "", "name must not be empty"
         namespace != "", "namespace must not be empty"
         tech in ["flux", "argocd"], "tech must be one of: flux, argocd"
+        gitSyncAuthType in ["https", "ssh"], "gitSyncAuthType must be 'https' or 'ssh'"

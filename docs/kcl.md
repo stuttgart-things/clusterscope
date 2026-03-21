@@ -100,9 +100,12 @@ kcl_options:
 | `config.tech` | `flux` | GitOps technology: `flux` or `argocd` |
 | `config.gitSyncEnabled` | `false` | Enable git-sync sidecar |
 | `config.gitSyncImage` | `registry.k8s.io/git-sync/git-sync:v4.4.0` | git-sync image |
-| `config.gitSyncRepo` | `""` | Git repository URL to sync |
-| `config.gitSyncBranch` | `main` | Branch/ref to sync |
-| `config.gitSyncPeriod` | `60s` | Sync interval |
+| `config.gitSyncRepo` | `""` | Git repository URL to sync (single-repo mode) |
+| `config.gitSyncBranch` | `main` | Branch/ref to sync (single-repo mode) |
+| `config.gitSyncPeriod` | `60s` | Sync interval (single-repo mode) |
+| `config.gitSyncAuthSecretName` | `""` | K8s Secret name for private repo auth |
+| `config.gitSyncAuthType` | `https` | Auth type: `https` (token) or `ssh` |
+| `config.gitSyncRepos` | `[]` | List of `GitSyncRepo` objects for multi-repo mode |
 | `config.httpRouteEnabled` | `false` | Create HTTPRoute (Gateway API) |
 | `config.gatewayName` | `""` | Gateway name to attach the HTTPRoute to |
 | `config.gatewayNamespace` | `default` | Namespace of the Gateway |
@@ -123,6 +126,78 @@ pod
 
 git-sync creates: `/data/<repo-name> -> .worktrees/<hash>` (symlink).
 Set `config.dir` to the subfolder inside the repo that contains the cluster directories, e.g. `/data/harvester/clusters`.
+
+## Private repository authentication
+
+For private repositories, set `gitSyncAuthSecretName` and `gitSyncAuthType`.
+
+### HTTPS (token/password)
+
+```bash
+kubectl create secret generic git-sync-auth \
+  --from-literal=username=token \
+  --from-literal=password=<GITHUB_TOKEN> \
+  -n clusterscope
+```
+
+```yaml
+- key: config.gitSyncAuthSecretName
+  value: git-sync-auth
+- key: config.gitSyncAuthType
+  value: https
+```
+
+### SSH key
+
+```bash
+kubectl create secret generic git-sync-ssh \
+  --from-file=ssh=/home/user/.ssh/id_rsa \
+  -n clusterscope
+```
+
+```yaml
+- key: config.gitSyncAuthSecretName
+  value: git-sync-ssh
+- key: config.gitSyncAuthType
+  value: ssh
+```
+
+## Multi-repo mode
+
+To monitor multiple repositories simultaneously, use `gitSyncRepos` instead of `gitSyncRepo`. Each entry creates a dedicated `git-sync-<subdir>` sidecar that syncs into `/data/<subdir>/`:
+
+```yaml
+- key: config.gitSyncRepos
+  value:
+    - repo: https://github.com/org/harvester
+      branch: main
+      subdir: harvester     # syncs into /data/harvester/
+      period: 60s
+    - repo: https://github.com/org/clusters
+      branch: main
+      subdir: st-clusters   # syncs into /data/st-clusters/
+      period: 120s
+      authSecretName: git-sync-auth   # optional: private repo
+      authType: https
+```
+
+Set `config.dir` to `/data` — clusterscope scans all subdirectories automatically:
+
+```yaml
+- key: config.dir
+  value: /data
+```
+
+Resulting pod layout:
+
+```
+pod
++-- container: clusterscope         (-root=/data -tech=flux -serve=:8080)
++-- container: git-sync-harvester   (--root=/data/harvester)
++-- container: git-sync-st-clusters (--root=/data/st-clusters)
+```
+
+> **Note:** `gitSyncRepos` takes priority over `gitSyncRepo`. Existing single-repo profiles continue to work unchanged.
 
 ## HTTPRoute
 

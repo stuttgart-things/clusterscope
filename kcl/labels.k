@@ -16,6 +16,9 @@ _gitSyncImage = option("config.gitSyncImage")
 _gitSyncRepo = option("config.gitSyncRepo")
 _gitSyncBranch = option("config.gitSyncBranch")
 _gitSyncPeriod = option("config.gitSyncPeriod")
+_gitSyncAuthSecretName = option("config.gitSyncAuthSecretName")
+_gitSyncAuthType = option("config.gitSyncAuthType")
+_gitSyncRepos = option("config.gitSyncRepos")
 _httpRouteEnabled = option("config.httpRouteEnabled")
 _gatewayName = option("config.gatewayName")
 _gatewayNamespace = option("config.gatewayNamespace")
@@ -46,6 +49,12 @@ config: schema.ClusterScope = schema.ClusterScope {
         gitSyncBranch = _gitSyncBranch
     if _gitSyncPeriod:
         gitSyncPeriod = _gitSyncPeriod
+    if _gitSyncAuthSecretName:
+        gitSyncAuthSecretName = _gitSyncAuthSecretName
+    if _gitSyncAuthType:
+        gitSyncAuthType = _gitSyncAuthType
+    if _gitSyncRepos:
+        gitSyncRepos = _gitSyncRepos
     if _httpRouteEnabled:
         httpRouteEnabled = _httpRouteEnabled == True or str(_httpRouteEnabled) in ["true", "True", "1"]
     if _gatewayName:

@@ -287,7 +287,7 @@ deployment = {
                         }
                         livenessProbe: {
                             httpGet: {
-                                path: "/"
+                                path: "/healthz"
                                 port: config.port
                             }
                             initialDelaySeconds: 10
@@ -295,7 +295,7 @@ deployment = {
                         }
                         readinessProbe: {
                             httpGet: {
-                                path: "/"
+                                path: "/readyz"
                                 port: config.port
                             }
                             initialDelaySeconds: 5

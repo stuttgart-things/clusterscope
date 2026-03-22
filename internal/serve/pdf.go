@@ -45,11 +45,19 @@ func (s *Server) handlePDF(w http.ResponseWriter, r *http.Request) {
 	//	--no-sandbox             required without user namespaces (k8s root pod)
 	//	--disable-dev-shm-usage  use /tmp instead of /dev/shm (avoids 64 MB shm limit)
 	//	--disable-gpu            no GPU in headless containers
+	//	--disable-crash-reporter prevents crashpad from starting (needs writable --database)
+	//	--no-first-run           skip first-run setup that writes to the profile dir
+	//	--disable-breakpad       disable Breakpad crash handler as well
+	//	--user-data-dir          explicit writable dir for Chrome profile (nobody user)
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("no-sandbox", true),
 		chromedp.Flag("disable-dev-shm-usage", true),
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("disable-software-rasterizer", true),
+		chromedp.Flag("disable-crash-reporter", true),
+		chromedp.Flag("no-first-run", true),
+		chromedp.Flag("disable-breakpad", true),
+		chromedp.UserDataDir("/tmp/chrome-clusterscope"),
 		chromedp.Headless,
 	)
 

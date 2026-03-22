@@ -37,6 +37,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # chromedp looks for the browser via CHROME_PATH or well-known locations
 ENV CHROME_PATH=/usr/bin/chromium
 
+# Writable Chrome user-data dir for nobody user (crashpad, profile, cache)
+RUN mkdir -p /tmp/chrome-clusterscope && chmod 1777 /tmp/chrome-clusterscope
+
 COPY --from=builder /clusterscope /usr/local/bin/clusterscope
 
 USER nobody

@@ -53,6 +53,7 @@ type Server struct {
 	cache     map[string]*graph.ClusterProfile
 	scanned   map[string]time.Time
 	refreshed map[string]time.Time
+	ready     bool
 }
 
 // Start starts the HTTP server on addr, scanning root for cluster directories.
@@ -74,6 +75,9 @@ func Start(addr, root string, opts Options) error {
 	}
 
 	s.scanAll()
+	s.mu.Lock()
+	s.ready = true
+	s.mu.Unlock()
 	go s.watch()
 
 	if opts.Live {
@@ -83,6 +87,8 @@ func Start(addr, root string, opts Options) error {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", s.handleHealthz)
+	mux.HandleFunc("/readyz", s.handleReadyz)
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/api/clusters", s.handleAPIclusters)
 	mux.HandleFunc("/clusters/", s.handleCluster)
@@ -229,6 +235,26 @@ func (s *Server) watch() {
 }
 
 // ── HTTP handlers ─────────────────────────────────────────────────────────────
+
+func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
+}
+
+func (s *Server) handleReadyz(w http.ResponseWriter, _ *http.Request) {
+	s.mu.RLock()
+	ready := s.ready
+	s.mu.RUnlock()
+	w.Header().Set("Content-Type", "text/plain")
+	if ready {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	} else {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("not ready"))
+	}
+}
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {

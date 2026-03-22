@@ -38,22 +38,26 @@ type Options struct {
 
 // ClusterSummary is the JSON payload returned by GET /api/clusters.
 type ClusterSummary struct {
-	Name          string `json:"name"`
-	Tech          string `json:"tech"`
-	NodeCount     int    `json:"nodeCount"`
-	LastScan      string `json:"lastScan"`
-	LastRefreshed string `json:"lastRefreshed,omitempty"`
+	Name          string         `json:"name"`
+	Tech          string         `json:"tech"`
+	NodeCount     int            `json:"nodeCount"`
+	AppCount      int            `json:"appCount"`
+	LastScan      string         `json:"lastScan"`
+	LastRefreshed string         `json:"lastRefreshed,omitempty"`
+	ScanError     string         `json:"scanError,omitempty"`
+	HealthSummary map[string]int `json:"healthSummary,omitempty"`
 }
 
 // Server holds the HTTP mux and cluster cache.
 type Server struct {
-	root      string
-	opts      Options
-	mu        sync.RWMutex
-	cache     map[string]*graph.ClusterProfile
-	scanned   map[string]time.Time
-	refreshed map[string]time.Time
-	ready     bool
+	root       string
+	opts       Options
+	mu         sync.RWMutex
+	cache      map[string]*graph.ClusterProfile
+	scanned    map[string]time.Time
+	refreshed  map[string]time.Time
+	scanErrors map[string]string
+	ready      bool
 }
 
 // Start starts the HTTP server on addr, scanning root for cluster directories.
@@ -67,11 +71,12 @@ func Start(addr, root string, opts Options) error {
 	}
 
 	s := &Server{
-		root:      root,
-		opts:      opts,
-		cache:     make(map[string]*graph.ClusterProfile),
-		scanned:   make(map[string]time.Time),
-		refreshed: make(map[string]time.Time),
+		root:       root,
+		opts:       opts,
+		cache:      make(map[string]*graph.ClusterProfile),
+		scanned:    make(map[string]time.Time),
+		refreshed:  make(map[string]time.Time),
+		scanErrors: make(map[string]string),
 	}
 
 	s.scanAll()
@@ -175,11 +180,16 @@ func (s *Server) scanCluster(path, name string) {
 	}
 	if err != nil {
 		log.Printf("scan %s (%s): %v", name, tech, err)
+		s.mu.Lock()
+		s.scanErrors[name] = err.Error()
+		s.scanned[name] = time.Now()
+		s.mu.Unlock()
 		return
 	}
 
 	s.mu.Lock()
 	s.cache[name] = profile
+	delete(s.scanErrors, name)
 	s.scanned[name] = time.Now()
 	s.mu.Unlock()
 	log.Printf("scanned %s  tech=%s  nodes=%d", name, tech, len(profile.Graph.Nodes))
@@ -271,13 +281,43 @@ func (s *Server) handleAPIclusters(w http.ResponseWriter, _ *http.Request) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	summaries := make([]ClusterSummary, 0, len(s.cache))
-	for name, p := range s.cache {
+	// Collect names from both cache and scanErrors so failed clusters appear too.
+	allNames := make(map[string]struct{})
+	for n := range s.cache {
+		allNames[n] = struct{}{}
+	}
+	for n := range s.scanErrors {
+		allNames[n] = struct{}{}
+	}
+
+	summaries := make([]ClusterSummary, 0, len(allNames))
+	for name := range allNames {
 		cs := ClusterSummary{
-			Name:      name,
-			Tech:      p.Technology,
-			NodeCount: len(p.Graph.Nodes),
-			LastScan:  s.scanned[name].Format(time.RFC3339),
+			Name:     name,
+			LastScan: s.scanned[name].Format(time.RFC3339),
+		}
+		if errMsg, ok := s.scanErrors[name]; ok {
+			cs.ScanError = errMsg
+		}
+		if p, ok := s.cache[name]; ok {
+			cs.Tech = p.Technology
+			cs.NodeCount = len(p.Graph.Nodes)
+			for _, n := range p.Graph.Nodes {
+				if n.Type == "apps" || n.Type == "argoapp" {
+					cs.AppCount++
+				}
+			}
+			if s.opts.Live {
+				health := make(map[string]int)
+				for _, n := range p.Graph.Nodes {
+					if n.Status != "" {
+						health[n.Status]++
+					}
+				}
+				if len(health) > 0 {
+					cs.HealthSummary = health
+				}
+			}
 		}
 		if t, ok := s.refreshed[name]; ok {
 			cs.LastRefreshed = t.Format(time.RFC3339)

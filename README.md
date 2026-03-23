@@ -1,18 +1,22 @@
 # clusterscope
 
-**clusterscope** is a CLI tool that parses GitOps cluster directories and generates interactive, self-contained HTML visualizations of the resource dependency graph — no running cluster required.
+**clusterscope** is a CLI tool and HTTP dashboard that parses GitOps cluster directories and generates interactive, self-contained HTML visualizations of the resource dependency graph — no running cluster required.
 
 Point it at a Flux or ArgoCD cluster folder and get a standalone HTML file you can open in any browser, commit to Git, or attach to a pull request.
 
 ## Features
 
 - Parses **FluxCD** `Kustomization`, `GitRepository`, and `FluxInstance` resources
+- Parses **ArgoCD** `Application`, `ApplicationSet`, and `AppProject` resources
 - Interactive **D3.js** dependency graph with layered DAG layout
 - Layer toggles, live search, hover highlighting, and click-to-detail panel
 - Cards view alongside the graph for quick scanning
 - SOPS-encrypted substitution values are automatically stripped from the output
-- Outputs to **stdout** or a file — fully offline, no cluster access needed
-- ArgoCD support planned (see [GitHub Issues](https://github.com/stuttgart-things/clusterscope/issues))
+- **PR preview** — visual diff of what a pull request changes in the cluster graph
+- **Live mode** — real-time reconciliation status from a running cluster
+- HTTP dashboard with HTMX-driven multi-cluster view
+- PDF export via headless Chromium
+- Prometheus metrics endpoint
 
 ## Installation
 
@@ -22,59 +26,87 @@ cd clusterscope
 go build -o clusterscope ./cmd/clusterscope
 ```
 
-## Usage
+## Quick Start
 
-### Generate an HTML profile from a Flux cluster directory
+### Generate an HTML profile
 
 ```bash
-# Output to stdout
-clusterscope -dir ./clusters/labul/vsphere/my-cluster
-
-# Write to a file
-clusterscope -dir ./clusters/labul/vsphere/my-cluster -out profile.html
-
-# Specify technology explicitly (default: flux)
-clusterscope -dir ./clusters/labul/vsphere/my-cluster -tech flux -out profile.html
+clusterscope -dir ./clusters/labul/vsphere/movie-scripts -out profile.html
+open profile.html
 ```
 
-### Flags
+### Run the dashboard
+
+```bash
+clusterscope -serve :8080 -root ./clusters/labul/vsphere
+# Open http://localhost:8080
+```
+
+### PR preview (CLI)
+
+Compare two cluster directories and output a markdown diff:
+
+```bash
+clusterscope -diff \
+  -base-dir ./clusters/labul/vsphere/movie-scripts \
+  -head-dir ./pr-branch/clusters/labul/vsphere/movie-scripts
+```
+
+### PR preview (dashboard)
+
+```bash
+clusterscope -serve :8080 -root ./clusters/labul/vsphere
+# Open http://localhost:8080 → use the "PR Preview" form in the sidebar
+# Enter repo URL, PR number, and cluster name
+```
+
+See [PR Preview](docs/preview.md) for full documentation.
+
+## Flags
 
 | Flag | Default | Description |
 |---|---|---|
 | `-dir` | `.` | Path to the cluster directory to parse |
 | `-out` | stdout | Output file path |
 | `-tech` | `flux` | Technology to parse: `flux` \| `argocd` |
+| `-root` | `.` | Root directory containing cluster subdirs |
+| `-serve` | — | Start HTTP dashboard server (e.g. `:8080`) |
+| `-live` | `false` | Enrich graph with real-time reconciliation status |
+| `-kubeconfig` | — | Path to kubeconfig file |
+| `-refresh` | `30` | Live status refresh interval in seconds |
+| `-diff` | `false` | Compare two cluster directories and output a diff |
+| `-base-dir` | — | Base cluster directory (used with `-diff`) |
+| `-head-dir` | — | Head cluster directory (used with `-diff`) |
+| `-format` | `markdown` | Diff output format: `markdown` \| `json` \| `html` |
+| `-preview-root` | — | Directory containing PR head ref cluster files (used with `-serve`) |
 
-### Open the result
+## Documentation
 
-```bash
-xdg-open profile.html   # Linux
-open profile.html        # macOS
-```
+- [CLI Reference](docs/usage.md)
+- [Serve Mode](docs/serve.md)
+- [PR Preview](docs/preview.md)
+- [Live Mode](docs/live.md)
+- [PDF Export](docs/pdf.md)
+- [KCL Deployment](docs/kcl.md)
+- [Architecture](docs/architecture.md)
+- [Configuration](docs/configuration.md)
 
 ## Project structure
 
 ```
 clusterscope/
-├── cmd/clusterscope/main.go      # CLI entrypoint
+├── cmd/clusterscope/main.go        # CLI entrypoint
 ├── internal/
-│   ├── graph/graph.go            # Shared data model (Node, Edge, ClusterProfile)
-│   └── render/
-│       ├── render.go             # HTML renderer (technology-agnostic)
-│       └── template.html         # Interactive D3.js template
+│   ├── diff/                        # Graph diff engine + markdown output
+│   ├── graph/graph.go               # Shared data model (Node, Edge, ClusterProfile)
+│   ├── live/live.go                 # Kubernetes real-time enrichment
+│   ├── preview/clone.go             # On-demand git clone for PR preview
+│   ├── render/                      # HTML templates (cluster, diff, shell, index)
+│   ├── scan/scan.go                 # Tech detection + cluster discovery
+│   └── serve/serve.go               # HTTP server + file watcher
 ├── pkg/
-│   ├── flux/parser.go            # FluxCD YAML parser
-│   └── argocd/parser.go          # ArgoCD parser (planned)
-└── go.mod
+│   ├── flux/parser.go               # FluxCD YAML parser
+│   └── argocd/parser.go             # ArgoCD parser
+├── kcl/                             # KCL Kubernetes deployment manifests
+└── docs/                            # Documentation
 ```
-
-## Roadmap
-
-| Issue | Feature |
-|---|---|
-| [#1](https://github.com/stuttgart-things/clusterscope/issues/1) | Multi-cluster mode: scan a `clusters/` root → index dashboard |
-| [#2](https://github.com/stuttgart-things/clusterscope/issues/2) | ArgoCD parser: Application, ApplicationSet, AppProject |
-| [#3](https://github.com/stuttgart-things/clusterscope/issues/3) | Serve mode: HTTP microservice with scrollable multi-cluster dashboard |
-| [#4](https://github.com/stuttgart-things/clusterscope/issues/4) | Live mode: real-time reconciliation status from a running cluster |
-| [#5](https://github.com/stuttgart-things/clusterscope/issues/5) | CI integration: Dockerfile + GitHub Actions |
-| [#6](https://github.com/stuttgart-things/clusterscope/issues/6) | UI redesign: multi-technology, multi-cluster carousel view |

@@ -19,6 +19,11 @@ clusterscope [flags]
 | `-kubeconfig` | — | Path to kubeconfig file |
 | `-refresh` | `30` | Live status refresh interval in seconds |
 | `-repos-config` | — | Path to repos.yaml (git-sync Kubernetes mode) |
+| `-diff` | `false` | Compare two cluster directories and output a diff |
+| `-base-dir` | — | Base cluster directory (used with `-diff`) |
+| `-head-dir` | — | Head cluster directory (used with `-diff`) |
+| `-format` | `markdown` | Diff output format: `markdown` \| `json` \| `html` |
+| `-preview-root` | — | PR head ref cluster files (used with `-serve`) |
 
 ## Examples
 
@@ -57,3 +62,18 @@ clusterscope -serve :8080 -root ./clusters -live -kubeconfig ~/.kube/prod
 ```
 
 See [Live Mode](live.md) for details.
+
+### PR preview diff
+
+```bash
+# Markdown (for PR comments)
+clusterscope -diff -base-dir ./clusters/labul/vsphere/movie-scripts -head-dir ./pr/clusters/labul/vsphere/movie-scripts
+
+# JSON
+clusterscope -diff -base-dir ./base -head-dir ./head -format json
+
+# HTML
+clusterscope -diff -base-dir ./base -head-dir ./head -format html -out diff.html
+```
+
+See [PR Preview](preview.md) for details.

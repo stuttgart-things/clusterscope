@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 	"github.com/stuttgart-things/clusterscope/internal/live"
 	"github.com/stuttgart-things/clusterscope/internal/render"
@@ -50,14 +51,14 @@ type ClusterSummary struct {
 
 // Server holds the HTTP mux and cluster cache.
 type Server struct {
-	root       string
-	opts       Options
-	mu         sync.RWMutex
-	cache      map[string]*graph.ClusterProfile
-	scanned    map[string]time.Time
-	refreshed  map[string]time.Time
-	scanErrors map[string]string
-	ready      bool
+	root      string
+	opts      Options
+	mu        sync.RWMutex
+	cache     map[string]*graph.ClusterProfile
+	scanned   map[string]time.Time
+	refreshed map[string]time.Time
+	scanErrs  map[string]string
+	ready     bool
 }
 
 // Start starts the HTTP server on addr, scanning root for cluster directories.
@@ -71,12 +72,12 @@ func Start(addr, root string, opts Options) error {
 	}
 
 	s := &Server{
-		root:       root,
-		opts:       opts,
-		cache:      make(map[string]*graph.ClusterProfile),
-		scanned:    make(map[string]time.Time),
-		refreshed:  make(map[string]time.Time),
-		scanErrors: make(map[string]string),
+		root:      root,
+		opts:      opts,
+		cache:     make(map[string]*graph.ClusterProfile),
+		scanned:   make(map[string]time.Time),
+		refreshed: make(map[string]time.Time),
+		scanErrs:  make(map[string]string),
 	}
 
 	s.scanAll()
@@ -94,6 +95,7 @@ func Start(addr, root string, opts Options) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/readyz", s.handleReadyz)
+	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/api/clusters", s.handleAPIclusters)
 	mux.HandleFunc("/clusters/", s.handleCluster)
@@ -108,6 +110,9 @@ func Start(addr, root string, opts Options) error {
 // ── live enrichment ────────────────────────────────────────────────────────────
 
 func (s *Server) enrichAll() {
+	start := time.Now()
+	defer func() { liveEnrichDuration.Observe(time.Since(start).Seconds()) }()
+
 	s.mu.RLock()
 	names := make([]string, 0, len(s.cache))
 	for n := range s.cache {
@@ -137,6 +142,9 @@ func (s *Server) liveRefreshLoop() {
 }
 
 func (s *Server) scanAll() {
+	start := time.Now()
+	defer func() { scanDuration.Observe(time.Since(start).Seconds()) }()
+
 	// Check if any immediate subdirectory contains YAML — if yes, multi-cluster mode.
 	// Only fall back to treating root as a single cluster if no subdir clusters exist.
 	hasSubClusters := false
@@ -180,8 +188,9 @@ func (s *Server) scanCluster(path, name string) {
 	}
 	if err != nil {
 		log.Printf("scan %s (%s): %v", name, tech, err)
+		scanErrors.Inc()
 		s.mu.Lock()
-		s.scanErrors[name] = err.Error()
+		s.scanErrs[name] = err.Error()
 		s.scanned[name] = time.Now()
 		s.mu.Unlock()
 		return
@@ -189,10 +198,23 @@ func (s *Server) scanCluster(path, name string) {
 
 	s.mu.Lock()
 	s.cache[name] = profile
-	delete(s.scanErrors, name)
+	delete(s.scanErrs, name)
 	s.scanned[name] = time.Now()
 	s.mu.Unlock()
 	log.Printf("scanned %s  tech=%s  nodes=%d", name, tech, len(profile.Graph.Nodes))
+
+	// Update per-cluster metrics
+	var appCount int
+	for _, n := range profile.Graph.Nodes {
+		if n.Type == "apps" || n.Type == "argoapp" {
+			appCount++
+		}
+	}
+	clusterNodesTotal.WithLabelValues(name, tech).Set(float64(len(profile.Graph.Nodes)))
+	clusterAppsTotal.WithLabelValues(name, tech).Set(float64(appCount))
+	s.mu.RLock()
+	clustersTotal.Set(float64(len(s.cache)))
+	s.mu.RUnlock()
 
 	if s.opts.Live {
 		live.Enrich(profile, s.opts.Kubeconfig)
@@ -281,12 +303,12 @@ func (s *Server) handleAPIclusters(w http.ResponseWriter, _ *http.Request) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	// Collect names from both cache and scanErrors so failed clusters appear too.
+	// Collect names from both cache and scanErrs so failed clusters appear too.
 	allNames := make(map[string]struct{})
 	for n := range s.cache {
 		allNames[n] = struct{}{}
 	}
-	for n := range s.scanErrors {
+	for n := range s.scanErrs {
 		allNames[n] = struct{}{}
 	}
 
@@ -296,7 +318,7 @@ func (s *Server) handleAPIclusters(w http.ResponseWriter, _ *http.Request) {
 			Name:     name,
 			LastScan: s.scanned[name].Format(time.RFC3339),
 		}
-		if errMsg, ok := s.scanErrors[name]; ok {
+		if errMsg, ok := s.scanErrs[name]; ok {
 			cs.ScanError = errMsg
 		}
 		if p, ok := s.cache[name]; ok {

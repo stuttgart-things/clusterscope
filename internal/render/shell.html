@@ -47,7 +47,7 @@
 
   /* ── sidebar ── */
   nav.sidebar {
-    width: 220px;
+    width: 280px;
     background: #141720;
     border-right: 1px solid #2d3148;
     display: flex;
@@ -55,17 +55,28 @@
     flex-shrink: 0;
     overflow-y: auto;
   }
-  nav.sidebar h2 {
-    padding: 1rem 1rem 0.5rem;
-    font-size: 0.7rem;
+  .sidebar-section {
+    padding: 0.75rem 0.75rem 0;
+  }
+  .sidebar-heading {
+    padding: 0.5rem 0.5rem 0.4rem;
+    font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: #4a5568;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .sidebar-heading svg {
+    width: 12px;
+    height: 12px;
+    opacity: 0.5;
   }
   nav.sidebar ul {
     list-style: none;
-    padding: 0 0.5rem 1rem;
+    padding: 0 0 0.5rem;
   }
   nav.sidebar ul li a {
     display: flex;
@@ -73,7 +84,7 @@
     gap: 0.5rem;
     padding: 0.45rem 0.75rem;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: #94a3b8;
     text-decoration: none;
     cursor: pointer;
@@ -84,22 +95,163 @@
     background: #1e2235;
     color: #e2e8f0;
   }
+  .cluster-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+  }
+  .cluster-name {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cluster-meta {
+    font-size: 0.7rem;
+    color: #4a5568;
+    display: flex;
+    gap: 0.5rem;
+  }
   nav.sidebar ul li a .badge {
-    margin-left: auto;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     padding: 0.1rem 0.4rem;
     border-radius: 9999px;
     background: #1e2a45;
     color: #60a5fa;
+    flex-shrink: 0;
   }
   nav.sidebar ul li a .badge.argocd {
     background: #1e3a2a;
     color: #34d399;
   }
+  .health-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .health-dot.healthy { background: #3fb950; box-shadow: 0 0 4px #3fb95066; }
+  .health-dot.degraded { background: #f85149; box-shadow: 0 0 4px #f8514966; }
+  .health-dot.mixed { background: #f0883e; box-shadow: 0 0 4px #f0883e66; }
+  .health-dot.unknown { background: #444c56; }
 
   /* loading state */
-  nav.sidebar ul.htmx-indicator {
-    opacity: 0.5;
+  nav.sidebar ul.htmx-indicator { opacity: 0.5; }
+
+  /* ── divider ── */
+  .sidebar-divider {
+    height: 1px;
+    background: #2d3148;
+    margin: 0.25rem 0.75rem;
+  }
+
+  /* ── preview form ── */
+  .preview-form {
+    padding: 0 0.75rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .preview-form label {
+    font-size: 0.7rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+  .preview-input {
+    background: #1a1d27;
+    border: 1px solid #2d3148;
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    color: #e2e8f0;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  .preview-input:focus {
+    border-color: #d2a8ff;
+  }
+  .preview-input::placeholder {
+    color: #3a3f55;
+  }
+  .preview-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .preview-row .preview-input {
+    flex: 1;
+  }
+  .preview-btn {
+    background: linear-gradient(135deg, #7c3aed 0%, #d2a8ff 100%);
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #0f1117;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+  .preview-btn:hover { opacity: 0.9; }
+  .preview-btn:active { transform: scale(0.98); }
+  .preview-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .preview-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  .preview-error {
+    font-size: 0.72rem;
+    color: #f85149;
+    padding: 0.3rem 0;
+    display: none;
+  }
+  .preview-status {
+    font-size: 0.72rem;
+    color: #d2a8ff;
+    padding: 0.3rem 0;
+    display: none;
+  }
+
+  /* recent previews */
+  .recent-list {
+    list-style: none;
+    padding: 0;
+  }
+  .recent-list li a {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .recent-list li a:hover {
+    background: #1e2235;
+    color: #e2e8f0;
+  }
+  .recent-pr {
+    font-weight: 600;
+    color: #d2a8ff;
+  }
+  .recent-cluster {
+    color: #64748b;
+    font-size: 0.7rem;
+    margin-left: auto;
   }
 
   /* ── main panel ── */
@@ -130,6 +282,13 @@
     opacity: 0.3;
   }
   .welcome p { font-size: 0.9rem; }
+  .welcome-hint {
+    font-size: 0.78rem;
+    color: #3a3f55;
+    margin-top: 0.5rem;
+    text-align: center;
+    line-height: 1.5;
+  }
 
   /* BUILD FOOTER */
   .build-footer{background:#141720;color:#475569;padding:.5rem 1.5rem;
@@ -140,21 +299,68 @@
 </head>
 <body>
 <header>
-  <h1>⎈ clusterscope</h1>
+  <h1>clusterscope</h1>
   <span class="subtitle">GitOps cluster visualizer</span>
 </header>
 
 <div class="layout">
   <nav class="sidebar" aria-label="Cluster navigation">
-    <h2>Clusters</h2>
-    <ul id="cluster-list"
-        hx-get="/api/clusters"
-        hx-trigger="load"
-        hx-target="#cluster-list"
-        hx-swap="innerHTML"
-        aria-live="polite">
+    <!-- CLUSTERS -->
+    <div class="sidebar-section">
+      <div class="sidebar-heading">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m9.9 9.9l2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m9.9-9.9l2.83-2.83"/></svg>
+        Clusters
+      </div>
+    </div>
+    <ul id="cluster-list">
       <li style="padding: 0.5rem 1rem; font-size:0.8rem; color:#4a5568;">Loading...</li>
     </ul>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- PR PREVIEW -->
+    <div class="sidebar-section">
+      <div class="sidebar-heading">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+        PR Preview
+      </div>
+    </div>
+    <div class="preview-form" id="preview-form">
+      <label>Repository URL</label>
+      <input class="preview-input" id="preview-repo" type="text"
+             placeholder="https://github.com/org/repo" autocomplete="url"/>
+      <div class="preview-row">
+        <div style="flex:1">
+          <label>PR #</label>
+          <input class="preview-input" id="preview-pr" type="text"
+                 placeholder="42" style="margin-top:0.25rem"/>
+        </div>
+        <div style="flex:1">
+          <label>Cluster</label>
+          <select class="preview-input" id="preview-cluster" style="margin-top:0.25rem">
+            <option value="">loading...</option>
+          </select>
+        </div>
+      </div>
+      <button class="preview-btn" id="preview-btn" onclick="loadPreview()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Preview Diff
+      </button>
+      <div class="preview-error" id="preview-error"></div>
+      <div class="preview-status" id="preview-status"></div>
+    </div>
+
+    <!-- RECENT PREVIEWS -->
+    <div id="recent-section" style="display:none">
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Recent
+        </div>
+      </div>
+      <ul class="recent-list" id="recent-list"></ul>
+    </div>
   </nav>
 
   <main>
@@ -164,19 +370,25 @@
           <circle cx="12" cy="12" r="10"/>
           <path d="M12 6v6l4 2"/>
         </svg>
-        <p>Select a cluster from the sidebar to visualize it.</p>
+        <p>Select a cluster to visualize</p>
+        <div class="welcome-hint">
+          or use the PR Preview form to diff<br/>
+          a pull request against the base branch
+        </div>
       </div>
     </div>
   </main>
 </div>
 
 <script>
-// Render cluster list items from /api/clusters JSON response.
-// HTMX calls hx-get="/api/clusters" and swaps innerHTML of #cluster-list,
-// but since the response is JSON we need a server-side template.
-// Instead, we fetch manually and render the list.
+/* ═══════════ STATE ═══════════ */
+let clusterNames = [];
+let recentPreviews = JSON.parse(localStorage.getItem('cs-recent-previews') || '[]');
+
+/* ═══════════ CLUSTER LIST ═══════════ */
 document.addEventListener("DOMContentLoaded", function () {
   loadClusters();
+  renderRecent();
 });
 
 function loadClusters() {
@@ -188,20 +400,35 @@ function loadClusters() {
         list.innerHTML = '<li style="padding:0.5rem 1rem;font-size:0.8rem;color:#4a5568;">No clusters found.</li>';
         return;
       }
-      // Sort alphabetically
       clusters.sort((a, b) => a.name.localeCompare(b.name));
+      clusterNames = clusters.map(c => c.name);
+
       list.innerHTML = clusters.map(c => {
         const techClass = c.tech === "argocd" ? "argocd" : "";
         const techLabel = c.tech === "argocd" ? "ArgoCD" : "Flux";
+        const healthDot = getHealthDot(c);
+        const meta = [];
+        if (c.nodeCount) meta.push(c.nodeCount + ' nodes');
+        if (c.appCount) meta.push(c.appCount + ' apps');
         return `<li>
           <a href="#" onclick="loadCluster('${escHtml(c.name)}');return false;"
              id="link-${escHtml(c.name)}"
              aria-label="Open cluster ${escHtml(c.name)}">
-            ${escHtml(c.name)}
+            ${healthDot}
+            <div class="cluster-info">
+              <span class="cluster-name">${escHtml(c.name)}</span>
+              ${meta.length ? '<span class="cluster-meta">' + meta.join(' &middot; ') + '</span>' : ''}
+            </div>
             <span class="badge ${techClass}">${techLabel}</span>
           </a>
         </li>`;
       }).join("");
+
+      // Populate preview cluster dropdown
+      const sel = document.getElementById("preview-cluster");
+      sel.innerHTML = clusters.map(c =>
+        `<option value="${escHtml(c.name)}">${escHtml(c.name)}</option>`
+      ).join("");
     })
     .catch(e => {
       const list = document.getElementById("cluster-list");
@@ -209,22 +436,122 @@ function loadClusters() {
     });
 }
 
-function loadCluster(name) {
-  // Update URL
-  history.pushState({cluster: name}, "", "/clusters/" + encodeURIComponent(name));
+function getHealthDot(c) {
+  if (!c.healthSummary) return '<span class="health-dot unknown"></span>';
+  const h = c.healthSummary;
+  if (h.failed > 0 && !h.ready) return '<span class="health-dot degraded"></span>';
+  if (h.failed > 0) return '<span class="health-dot mixed"></span>';
+  if (h.ready > 0) return '<span class="health-dot healthy"></span>';
+  return '<span class="health-dot unknown"></span>';
+}
 
-  // Mark active
+function loadCluster(name) {
+  history.pushState({cluster: name}, "", "/clusters/" + encodeURIComponent(name));
   document.querySelectorAll("nav.sidebar a").forEach(a => a.classList.remove("active"));
   const link = document.getElementById("link-" + name);
   if (link) link.classList.add("active");
-
-  // Load cluster in iframe
   const main = document.getElementById("main");
-  main.innerHTML = '<iframe id="cluster-frame" src="/clusters/' + encodeURIComponent(name) + '" title="Cluster visualization for ' + escHtml(name) + '" aria-label="Cluster visualization"></iframe>';
+  main.innerHTML = '<iframe id="cluster-frame" src="/clusters/' + encodeURIComponent(name) + '" title="Cluster visualization for ' + escHtml(name) + '"></iframe>';
 }
 
+/* ═══════════ PR PREVIEW ═══════════ */
+function loadPreview() {
+  const repo = document.getElementById("preview-repo").value.trim();
+  const pr = document.getElementById("preview-pr").value.trim();
+  const cluster = document.getElementById("preview-cluster").value;
+  const errEl = document.getElementById("preview-error");
+  const statusEl = document.getElementById("preview-status");
+  const btn = document.getElementById("preview-btn");
+
+  errEl.style.display = "none";
+  statusEl.style.display = "none";
+
+  if (!repo) { showError("Repository URL is required"); return; }
+  if (!pr) { showError("PR number is required"); return; }
+  if (!cluster) { showError("Select a cluster"); return; }
+
+  // Show loading state
+  btn.disabled = true;
+  btn.innerHTML = '<svg style="animation:spin 1s linear infinite" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 1 10 10"/></svg> Cloning...';
+  statusEl.textContent = 'Cloning ' + repo + ' at PR #' + pr + '...';
+  statusEl.style.display = "block";
+
+  const url = `/preview/${encodeURIComponent(cluster)}?repo=${encodeURIComponent(repo)}&pr=${encodeURIComponent(pr)}`;
+
+  // First, check the API endpoint to validate the clone works
+  const apiUrl = `/api/preview/${encodeURIComponent(cluster)}?repo=${encodeURIComponent(repo)}&pr=${encodeURIComponent(pr)}`;
+  fetch(apiUrl)
+    .then(r => {
+      if (!r.ok) return r.text().then(t => { throw new Error(t || r.statusText); });
+      return r.json();
+    })
+    .then(diffData => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Preview Diff';
+      statusEl.style.display = "none";
+
+      // Load the HTML diff view
+      document.querySelectorAll("nav.sidebar a").forEach(a => a.classList.remove("active"));
+      const main = document.getElementById("main");
+      main.innerHTML = `<iframe id="cluster-frame" src="${url}" title="PR #${escHtml(pr)} preview for ${escHtml(cluster)}"></iframe>`;
+
+      // Save to recent
+      addRecent(repo, pr, cluster);
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Preview Diff';
+      statusEl.style.display = "none";
+      showError(err.message);
+    });
+}
+
+function showError(msg) {
+  const el = document.getElementById("preview-error");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+/* ═══════════ RECENT PREVIEWS ═══════════ */
+function addRecent(repo, pr, cluster) {
+  // Remove duplicate
+  recentPreviews = recentPreviews.filter(r => !(r.repo === repo && r.pr === pr && r.cluster === cluster));
+  recentPreviews.unshift({repo, pr, cluster, ts: Date.now()});
+  if (recentPreviews.length > 5) recentPreviews = recentPreviews.slice(0, 5);
+  localStorage.setItem('cs-recent-previews', JSON.stringify(recentPreviews));
+  renderRecent();
+}
+
+function renderRecent() {
+  const section = document.getElementById("recent-section");
+  const list = document.getElementById("recent-list");
+  if (recentPreviews.length === 0) {
+    section.style.display = "none";
+    return;
+  }
+  section.style.display = "block";
+  list.innerHTML = recentPreviews.map(r => {
+    const repoShort = r.repo.replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '');
+    return `<li>
+      <a href="#" onclick="loadRecentPreview('${escHtml(r.repo)}','${escHtml(r.pr)}','${escHtml(r.cluster)}');return false;">
+        <span class="recent-pr">PR #${escHtml(r.pr)}</span>
+        ${escHtml(repoShort)}
+        <span class="recent-cluster">${escHtml(r.cluster)}</span>
+      </a>
+    </li>`;
+  }).join("");
+}
+
+function loadRecentPreview(repo, pr, cluster) {
+  document.getElementById("preview-repo").value = repo;
+  document.getElementById("preview-pr").value = pr;
+  document.getElementById("preview-cluster").value = cluster;
+  loadPreview();
+}
+
+/* ═══════════ HELPERS ═══════════ */
 function escHtml(s) {
-  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
 // Handle browser back/forward
@@ -238,10 +565,14 @@ window.addEventListener("popstate", function(e) {
 (function() {
   const m = window.location.pathname.match(/^\/clusters\/([^/]+)$/);
   if (m) {
-    // Wait for cluster list to load first, then activate
     setTimeout(() => loadCluster(decodeURIComponent(m[1])), 300);
   }
 })();
+
+// Add spin keyframe
+const style = document.createElement('style');
+style.textContent = '@keyframes spin { to { transform: rotate(360deg) } }';
+document.head.appendChild(style);
 </script>
 <div class="build-footer">
   <div style="display:flex;gap:1.5rem">
@@ -249,7 +580,7 @@ window.addEventListener("popstate", function(e) {
     <div><span class="bf-label">commit</span> <span class="bf-value">{{if gt (len .BuildCommit) 7}}{{slice .BuildCommit 0 7}}{{else}}{{.BuildCommit}}{{end}}</span></div>
     <div><span class="bf-label">built</span> <span class="bf-value">{{.BuildDate}}</span></div>
   </div>
-  <div style="position:absolute;left:50%;transform:translateX(-50%);font-size:.75rem;color:#4a5568">clusterscope &mdash; static GitOps graph visualization</div>
+  <div style="position:absolute;left:50%;transform:translateX(-50%);font-size:.75rem;color:#4a5568">clusterscope &mdash; GitOps cluster visualizer</div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem">
     <span class="bf-label">a</span>
     <a href="https://github.com/stuttgart-things" target="_blank" style="color:#818cf8;text-decoration:none">stuttgart-things</a>

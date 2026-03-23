@@ -17,6 +17,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/stuttgart-things/clusterscope/internal/diff"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 	"github.com/stuttgart-things/clusterscope/internal/live"
 	"github.com/stuttgart-things/clusterscope/internal/render"
@@ -35,6 +36,10 @@ type Options struct {
 	// RefreshSeconds is how often (in seconds) live status is re-fetched.
 	// Defaults to 30 when Live is true.
 	RefreshSeconds int
+	// PreviewRoot is the directory containing the PR head ref cluster files.
+	// When set, GET /preview/<cluster> and GET /api/preview/<cluster> become
+	// available, showing a diff between root (base) and preview-root (head).
+	PreviewRoot string
 }
 
 // ClusterSummary is the JSON payload returned by GET /api/clusters.
@@ -59,6 +64,10 @@ type Server struct {
 	refreshed map[string]time.Time
 	scanErrs  map[string]string
 	ready     bool
+
+	// preview holds parsed cluster profiles from the PR head directory.
+	previewMu    sync.RWMutex
+	previewCache map[string]*graph.ClusterProfile
 }
 
 // Start starts the HTTP server on addr, scanning root for cluster directories.
@@ -72,15 +81,20 @@ func Start(addr, root string, opts Options) error {
 	}
 
 	s := &Server{
-		root:      root,
-		opts:      opts,
-		cache:     make(map[string]*graph.ClusterProfile),
-		scanned:   make(map[string]time.Time),
-		refreshed: make(map[string]time.Time),
-		scanErrs:  make(map[string]string),
+		root:         root,
+		opts:         opts,
+		cache:        make(map[string]*graph.ClusterProfile),
+		scanned:      make(map[string]time.Time),
+		refreshed:    make(map[string]time.Time),
+		scanErrs:     make(map[string]string),
+		previewCache: make(map[string]*graph.ClusterProfile),
 	}
 
 	s.scanAll()
+	if opts.PreviewRoot != "" {
+		s.scanPreview()
+		go s.watchPreview()
+	}
 	s.mu.Lock()
 	s.ready = true
 	s.mu.Unlock()
@@ -100,6 +114,8 @@ func Start(addr, root string, opts Options) error {
 	mux.HandleFunc("/api/clusters", s.handleAPIclusters)
 	mux.HandleFunc("/clusters/", s.handleCluster)
 	mux.HandleFunc("/pdf/", s.handlePDF)
+	mux.HandleFunc("/api/preview/", s.handleAPIpreview)
+	mux.HandleFunc("/preview/", s.handlePreview)
 
 	log.Printf("clusterscope serving on %s  root=%s", addr, root)
 	return http.ListenAndServe(addr, mux) //nolint:gosec
@@ -376,6 +392,195 @@ func (s *Server) handleCluster(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := render.WriteHTML(w, profile); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// ── preview scanning ─────────────────────────────────────────────────────────
+
+func (s *Server) scanPreview() {
+	if s.opts.PreviewRoot == "" {
+		return
+	}
+	profiles := scanDir(s.opts.PreviewRoot)
+	s.previewMu.Lock()
+	s.previewCache = profiles
+	s.previewMu.Unlock()
+	log.Printf("preview scan complete  clusters=%d", len(profiles))
+}
+
+func (s *Server) watchPreview() {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Printf("preview fsnotify: %v", err)
+		return
+	}
+	defer func() { _ = watcher.Close() }()
+
+	if err := watcher.Add(s.opts.PreviewRoot); err != nil {
+		log.Printf("preview fsnotify add: %v", err)
+		return
+	}
+
+	var debounceTimer *time.Timer
+	for {
+		select {
+		case _, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			debounceTimer = time.AfterFunc(500*time.Millisecond, func() {
+				s.scanPreview()
+			})
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Printf("preview fsnotify error: %v", err)
+		}
+	}
+}
+
+// scanDir parses all cluster subdirectories (or the root itself) and returns
+// a map of cluster name → profile. Shared by both base and preview scanning.
+func scanDir(root string) map[string]*graph.ClusterProfile {
+	profiles := make(map[string]*graph.ClusterProfile)
+
+	// Check if root itself is a single cluster.
+	hasSubClusters := false
+	if dirEntries, err := os.ReadDir(root); err == nil {
+		for _, e := range dirEntries {
+			if e.IsDir() && scan.HasYAML(filepath.Join(root, e.Name())) {
+				hasSubClusters = true
+				break
+			}
+		}
+	}
+
+	if !hasSubClusters && scan.HasYAML(root) {
+		if p := parseCluster(root); p != nil {
+			profiles[filepath.Base(root)] = p
+		}
+		return profiles
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		log.Printf("scanDir: %v", err)
+		return profiles
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		dir := filepath.Join(root, e.Name())
+		if p := parseCluster(dir); p != nil {
+			profiles[e.Name()] = p
+		}
+	}
+	return profiles
+}
+
+// parseCluster detects technology and parses a single cluster directory.
+func parseCluster(dir string) *graph.ClusterProfile {
+	tech := scan.DetectTech(dir)
+	var profile *graph.ClusterProfile
+	var err error
+	switch tech {
+	case "argocd":
+		profile, err = argocd.ParseDir(dir)
+	default:
+		profile, err = flux.ParseDir(dir)
+	}
+	if err != nil {
+		log.Printf("preview parse %s: %v", dir, err)
+		return nil
+	}
+	return profile
+}
+
+// ── preview HTTP handlers ────────────────────────────────────────────────────
+
+func (s *Server) sanitizeClusterName(path, prefix string) (string, bool) {
+	name := strings.TrimPrefix(path, prefix)
+	name = strings.Trim(name, "/")
+	if name == "" || strings.Contains(name, "..") || strings.Contains(name, "/") {
+		return "", false
+	}
+	return name, true
+}
+
+func (s *Server) handleAPIpreview(w http.ResponseWriter, r *http.Request) {
+	name, ok := s.sanitizeClusterName(r.URL.Path, "/api/preview/")
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	s.mu.RLock()
+	baseProfile, baseOK := s.cache[name]
+	s.mu.RUnlock()
+
+	s.previewMu.RLock()
+	headProfile, headOK := s.previewCache[name]
+	s.previewMu.RUnlock()
+
+	if !baseOK && !headOK {
+		http.NotFound(w, r)
+		return
+	}
+
+	var baseGraph, headGraph graph.Graph
+	if baseOK {
+		baseGraph = baseProfile.Graph
+	}
+	if headOK {
+		headGraph = headProfile.Graph
+	}
+
+	gd := diff.Diff(baseGraph, headGraph)
+	gd.ClusterName = name
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(gd)
+}
+
+func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
+	name, ok := s.sanitizeClusterName(r.URL.Path, "/preview/")
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	s.mu.RLock()
+	baseProfile, baseOK := s.cache[name]
+	s.mu.RUnlock()
+
+	s.previewMu.RLock()
+	headProfile, headOK := s.previewCache[name]
+	s.previewMu.RUnlock()
+
+	if !baseOK && !headOK {
+		http.NotFound(w, r)
+		return
+	}
+
+	var baseGraph, headGraph graph.Graph
+	if baseOK {
+		baseGraph = baseProfile.Graph
+	}
+	if headOK {
+		headGraph = headProfile.Graph
+	}
+
+	gd := diff.Diff(baseGraph, headGraph)
+	gd.ClusterName = name
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := render.WriteDiffHTML(w, gd, baseProfile, headProfile); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

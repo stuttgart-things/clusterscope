@@ -38,6 +38,7 @@ func main() {
 	liveMode := flag.Bool("live", false, "enrich graph with real-time reconciliation status via kubectl")
 	kubeconfig := flag.String("kubeconfig", "", "path to kubeconfig file (default: KUBECONFIG env / ~/.kube/config)")
 	refreshSeconds := flag.Int("refresh", 30, "live status refresh interval in seconds (used with -live)")
+	previewRoot := flag.String("preview-root", "", "directory containing PR head ref cluster files for diff preview (used with -serve)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `clusterscope — generate an interactive HTML cluster profile from GitOps YAML files
@@ -59,6 +60,7 @@ Examples:
   clusterscope -serve :8080 -root ./clusters/
   clusterscope -serve :8080 -root /data -repos-config /etc/git-sync/repos.yaml
   clusterscope -serve :8080 -root ./clusters/ -live -kubeconfig ~/.kube/prod
+  clusterscope -serve :8080 -root /data/base -preview-root /data/head
   clusterscope -dir ./clusters/prod -tech flux -live -kubeconfig ~/.kube/prod -out live.html
 `)
 	}
@@ -79,6 +81,7 @@ Examples:
 			Live:           *liveMode,
 			Kubeconfig:     *kubeconfig,
 			RefreshSeconds: *refreshSeconds,
+			PreviewRoot:    *previewRoot,
 		}
 		if err := serve.Start(*serveAddr, *root, opts); err != nil {
 			fmt.Fprintf(os.Stderr, "serve error: %v\n", err)

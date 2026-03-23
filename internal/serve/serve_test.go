@@ -55,6 +55,13 @@ func TestHandleReadyz_Ready(t *testing.T) {
 	}
 }
 
+func newTestServerWithPreview(profiles map[string]*graph.ClusterProfile, preview map[string]*graph.ClusterProfile) *Server {
+	s := newTestServer(profiles, map[string]string{}, false)
+	s.previewCache = preview
+	s.opts.PreviewRoot = "/tmp/preview" // non-empty to indicate preview is enabled
+	return s
+}
+
 func newTestServer(profiles map[string]*graph.ClusterProfile, errs map[string]string, liveMode bool) *Server {
 	scanned := make(map[string]time.Time)
 	for name := range profiles {
@@ -194,5 +201,142 @@ func TestMetricsEndpoint(t *testing.T) {
 		if !strings.Contains(body, metric) {
 			t.Errorf("expected metric %q in /metrics output", metric)
 		}
+	}
+}
+
+// ── Preview endpoint tests ───────────────────────────────────────────────────
+
+func TestHandleAPIpreview_Diff(t *testing.T) {
+	base := map[string]*graph.ClusterProfile{
+		"prod": {
+			Technology: "flux",
+			Graph: graph.Graph{
+				Nodes: []graph.Node{
+					{ID: "cert-manager", Type: "infra", Version: "1.14.0"},
+					{ID: "ingress-nginx", Type: "infra"},
+				},
+				Edges: []graph.Edge{
+					{S: "cert-manager", T: "ingress-nginx", Kind: "dependsOn"},
+				},
+			},
+		},
+	}
+	head := map[string]*graph.ClusterProfile{
+		"prod": {
+			Technology: "flux",
+			Graph: graph.Graph{
+				Nodes: []graph.Node{
+					{ID: "cert-manager", Type: "infra", Version: "1.15.0"},
+					{ID: "ingress-nginx", Type: "infra"},
+					{ID: "monitoring", Type: "apps"},
+				},
+				Edges: []graph.Edge{
+					{S: "cert-manager", T: "ingress-nginx", Kind: "dependsOn"},
+					{S: "cert-manager", T: "monitoring", Kind: "dependsOn"},
+				},
+			},
+		},
+	}
+	s := newTestServerWithPreview(base, head)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/preview/prod", nil)
+	w := httptest.NewRecorder()
+	s.handleAPIpreview(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var result struct {
+		ClusterName string `json:"clusterName"`
+		Summary     struct {
+			Added    int `json:"added"`
+			Removed  int `json:"removed"`
+			Modified int `json:"modified"`
+			Same     int `json:"same"`
+		} `json:"summary"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if result.ClusterName != "prod" {
+		t.Errorf("clusterName: got %q", result.ClusterName)
+	}
+	if result.Summary.Added != 1 {
+		t.Errorf("added: got %d, want 1 (monitoring)", result.Summary.Added)
+	}
+	if result.Summary.Modified != 1 {
+		t.Errorf("modified: got %d, want 1 (cert-manager version)", result.Summary.Modified)
+	}
+	if result.Summary.Same != 1 {
+		t.Errorf("same: got %d, want 1 (ingress-nginx)", result.Summary.Same)
+	}
+}
+
+func TestHandleAPIpreview_NotFound(t *testing.T) {
+	s := newTestServerWithPreview(
+		map[string]*graph.ClusterProfile{},
+		map[string]*graph.ClusterProfile{},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/preview/nonexistent", nil)
+	w := httptest.NewRecorder()
+	s.handleAPIpreview(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestHandleAPIpreview_TraversalBlocked(t *testing.T) {
+	s := newTestServerWithPreview(
+		map[string]*graph.ClusterProfile{},
+		map[string]*graph.ClusterProfile{},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/preview/../etc/passwd", nil)
+	w := httptest.NewRecorder()
+	s.handleAPIpreview(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for traversal, got %d", w.Code)
+	}
+}
+
+func TestHandlePreview_RendersHTML(t *testing.T) {
+	base := map[string]*graph.ClusterProfile{
+		"staging": {
+			Technology: "flux",
+			Graph: graph.Graph{
+				Nodes: []graph.Node{{ID: "app1", Type: "apps"}},
+			},
+		},
+	}
+	head := map[string]*graph.ClusterProfile{
+		"staging": {
+			Technology: "flux",
+			Graph: graph.Graph{
+				Nodes: []graph.Node{
+					{ID: "app1", Type: "apps"},
+					{ID: "app2", Type: "apps"},
+				},
+			},
+		},
+	}
+	s := newTestServerWithPreview(base, head)
+
+	req := httptest.NewRequest(http.MethodGet, "/preview/staging", nil)
+	w := httptest.NewRecorder()
+	s.handlePreview(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "PR PREVIEW") {
+		t.Error("expected diff template to contain 'PR PREVIEW'")
+	}
+	if !strings.Contains(body, "staging") {
+		t.Error("expected cluster name 'staging' in output")
 	}
 }

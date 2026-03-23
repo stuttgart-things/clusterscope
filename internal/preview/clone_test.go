@@ -16,7 +16,7 @@ func TestShallowClone_PublicRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("shallowClone: %v", err)
 	}
-	defer os.RemoveAll(dir)
+	defer func() { _ = os.RemoveAll(dir) }()
 
 	// Verify the clone contains expected files.
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err != nil {

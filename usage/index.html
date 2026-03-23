@@ -618,6 +618,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pr-preview-diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PR preview diff
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1007,6 +1018,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pr-preview-diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PR preview diff
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1091,6 +1113,31 @@
 <td>—</td>
 <td>Path to repos.yaml (git-sync Kubernetes mode)</td>
 </tr>
+<tr>
+<td><code>-diff</code></td>
+<td><code>false</code></td>
+<td>Compare two cluster directories and output a diff</td>
+</tr>
+<tr>
+<td><code>-base-dir</code></td>
+<td>—</td>
+<td>Base cluster directory (used with <code>-diff</code>)</td>
+</tr>
+<tr>
+<td><code>-head-dir</code></td>
+<td>—</td>
+<td>Head cluster directory (used with <code>-diff</code>)</td>
+</tr>
+<tr>
+<td><code>-format</code></td>
+<td><code>markdown</code></td>
+<td>Diff output format: <code>markdown</code> | <code>json</code> | <code>html</code></td>
+</tr>
+<tr>
+<td><code>-preview-root</code></td>
+<td>—</td>
+<td>PR head ref cluster files (used with <code>-serve</code>)</td>
+</tr>
 </tbody>
 </table>
 <h2 id="examples">Examples</h2>
@@ -1113,6 +1160,17 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>clusterscope<span class="w"> </span>-serve<span class="w"> </span>:8080<span class="w"> </span>-root<span class="w"> </span>./clusters<span class="w"> </span>-live<span class="w"> </span>-kubeconfig<span class="w"> </span>~/.kube/prod
 </code></pre></div>
 <p>See <a href="../live/">Live Mode</a> for details.</p>
+<h3 id="pr-preview-diff">PR preview diff</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Markdown (for PR comments)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>clusterscope<span class="w"> </span>-diff<span class="w"> </span>-base-dir<span class="w"> </span>./clusters/labul/vsphere/movie-scripts<span class="w"> </span>-head-dir<span class="w"> </span>./pr/clusters/labul/vsphere/movie-scripts
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># JSON</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>clusterscope<span class="w"> </span>-diff<span class="w"> </span>-base-dir<span class="w"> </span>./base<span class="w"> </span>-head-dir<span class="w"> </span>./head<span class="w"> </span>-format<span class="w"> </span>json
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># HTML</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>clusterscope<span class="w"> </span>-diff<span class="w"> </span>-base-dir<span class="w"> </span>./base<span class="w"> </span>-head-dir<span class="w"> </span>./head<span class="w"> </span>-format<span class="w"> </span>html<span class="w"> </span>-out<span class="w"> </span>diff.html
+</code></pre></div>
+<p>See <a href="../preview/">PR Preview</a> for details.</p>
 
 
 

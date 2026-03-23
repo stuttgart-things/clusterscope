@@ -18,6 +18,12 @@ _gitSyncAuthSecretName = option("config.gitSyncAuthSecretName")
 _gitSyncAuthType = option("config.gitSyncAuthType")
 _gitSyncRepos = option("config.gitSyncRepos")
 _liveMode = option("config.liveMode")
+_previewEnabled = option("config.previewEnabled")
+_previewRepo = option("config.previewRepo")
+_previewRef = option("config.previewRef")
+_previewPeriod = option("config.previewPeriod")
+_previewAuthSecretName = option("config.previewAuthSecretName")
+_previewAuthType = option("config.previewAuthType")
 _httpRouteEnabled = option("config.httpRouteEnabled")
 _gatewayName = option("config.gatewayName")
 _gatewayNamespace = option("config.gatewayNamespace")
@@ -56,6 +62,18 @@ config: schema.ClusterScope = schema.ClusterScope {
         gitSyncRepos = _gitSyncRepos
     if _liveMode:
         liveMode = _liveMode == True or str(_liveMode) in ["true", "True", "1"]
+    if _previewEnabled:
+        previewEnabled = _previewEnabled == True or str(_previewEnabled) in ["true", "True", "1"]
+    if _previewRepo:
+        previewRepo = _previewRepo
+    if _previewRef:
+        previewRef = _previewRef
+    if _previewPeriod:
+        previewPeriod = _previewPeriod
+    if _previewAuthSecretName:
+        previewAuthSecretName = _previewAuthSecretName
+    if _previewAuthType:
+        previewAuthType = _previewAuthType
     if _httpRouteEnabled:
         httpRouteEnabled = _httpRouteEnabled == True or str(_httpRouteEnabled) in ["true", "True", "1"]
     if _gatewayName:

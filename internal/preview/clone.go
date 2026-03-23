@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -125,11 +126,18 @@ func shallowClone(repo, ref string) (string, error) {
 // parseDir discovers and parses cluster directories in a cloned repo.
 // It walks the tree recursively to find directories containing GitOps YAML,
 // handling repos with deep nesting like clusters/labul/vsphere/movie-scripts/.
+//
+// When a parent dir and its child both parse successfully, the child wins —
+// this handles repos where an intermediate dir has a kustomization.yaml but
+// the real cluster definitions live deeper.
 func parseDir(root string) map[string]*graph.ClusterProfile {
-	profiles := make(map[string]*graph.ClusterProfile)
+	// Collect all candidate dirs with their parsed profiles and paths.
+	type candidate struct {
+		path    string
+		profile *graph.ClusterProfile
+	}
+	var candidates []candidate
 
-	// Walk the tree and find directories that contain GitOps YAML and
-	// produce a non-empty graph when parsed.
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || !d.IsDir() {
 			return nil
@@ -142,13 +150,27 @@ func parseDir(root string) map[string]*graph.ClusterProfile {
 		}
 		p := parseCluster(path)
 		if p != nil && len(p.Graph.Nodes) > 0 {
-			name := filepath.Base(path)
-			profiles[name] = p
-			// Don't descend — this directory is a cluster root.
-			return filepath.SkipDir
+			candidates = append(candidates, candidate{path: path, profile: p})
 		}
 		return nil
 	})
+
+	// Remove candidates that are ancestors of other candidates.
+	// If /a/b/ and /a/b/c/ both parsed, keep only /a/b/c/.
+	profiles := make(map[string]*graph.ClusterProfile)
+	for i, c := range candidates {
+		isAncestor := false
+		for j, other := range candidates {
+			if i != j && strings.HasPrefix(other.path, c.path+"/") {
+				isAncestor = true
+				break
+			}
+		}
+		if !isAncestor {
+			name := filepath.Base(c.path)
+			profiles[name] = c.profile
+		}
+	}
 
 	// If nothing was found via walk but root has YAML, try root as single cluster.
 	if len(profiles) == 0 && scan.HasYAML(root) {

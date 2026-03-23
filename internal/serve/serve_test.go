@@ -11,6 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
+	"github.com/stuttgart-things/clusterscope/internal/preview"
 )
 
 func TestHandleHealthz(t *testing.T) {
@@ -71,11 +72,13 @@ func newTestServer(profiles map[string]*graph.ClusterProfile, errs map[string]st
 		scanned[name] = time.Now()
 	}
 	return &Server{
-		cache:     profiles,
-		scanErrs:  errs,
-		scanned:   scanned,
-		refreshed: make(map[string]time.Time),
-		opts:      Options{Live: liveMode},
+		cache:        profiles,
+		scanErrs:     errs,
+		scanned:      scanned,
+		refreshed:    make(map[string]time.Time),
+		previewCache: make(map[string]*graph.ClusterProfile),
+		cloner:       preview.NewCloner(preview.DefaultTTL),
+		opts:         Options{Live: liveMode},
 	}
 }
 

@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgbm1 \
     libasound2 \
     ca-certificates \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # chromedp looks for the browser via CHROME_PATH or well-known locations

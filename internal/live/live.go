@@ -1,16 +1,27 @@
 // Package live enriches a ClusterProfile graph with real-time reconciliation
-// status fetched from a running cluster via kubectl.
+// status fetched from a running cluster via the Kubernetes API (client-go).
 //
-// No credentials are ever written to HTML output. KUBECONFIG follows standard
-// kubectl conventions: --kubeconfig flag > KUBECONFIG env > ~/.kube/config.
+// In-cluster: when running inside Kubernetes, the pod's ServiceAccount token
+// is used automatically — no kubectl or KUBECONFIG required.
+//
+// Out-of-cluster: falls back to the kubeconfig path (--kubeconfig flag,
+// KUBECONFIG env, or ~/.kube/config).
 package live
 
 import (
+	"context"
 	"encoding/json"
-	"os/exec"
+	"log"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/stuttgart-things/clusterscope/internal/graph"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // NodeStatus carries the live reconciliation status for one resource.
@@ -39,10 +50,6 @@ type k8sItem struct {
 	} `json:"status"`
 }
 
-type k8sList struct {
-	Items []k8sItem `json:"items"`
-}
-
 // ArgoCD uses health/sync sub-objects instead of standard conditions.
 type argoItem struct {
 	Metadata struct {
@@ -61,82 +68,114 @@ type argoItem struct {
 	} `json:"status"`
 }
 
-type argoList struct {
-	Items []argoItem `json:"items"`
-}
-
 // ── public API ────────────────────────────────────────────────────────────────
 
 // Enrich auto-detects technology and enriches the profile accordingly.
-// Errors from kubectl are silently degraded to status "unknown" per the issue
-// acceptance criteria — the tool must never crash on live failures.
+// Errors are silently degraded to status "unknown" — the tool must never crash
+// on live failures.
 func Enrich(profile *graph.ClusterProfile, kubeconfig string) {
+	client, err := newDynamicClient(kubeconfig)
+	if err != nil {
+		log.Printf("live: cannot create k8s client: %v", err)
+		return
+	}
 	switch profile.Technology {
 	case "argocd":
-		EnrichArgoCD(profile, kubeconfig)
+		enrichArgoCD(profile, client)
 	default:
-		EnrichFlux(profile, kubeconfig)
+		enrichFlux(profile, client)
 	}
 }
 
-// EnrichFlux enriches a Flux cluster profile via kubectl kustomizations +
-// gitrepositories resources.
-func EnrichFlux(profile *graph.ClusterProfile, kubeconfig string) {
+// ── k8s client construction ───────────────────────────────────────────────────
+
+func newDynamicClient(kubeconfig string) (dynamic.Interface, error) {
+	var cfg *rest.Config
+	var err error
+
+	// Try in-cluster first (ServiceAccount token mount)
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" && kubeconfig == "" {
+		cfg, err = rest.InClusterConfig()
+	} else {
+		// Out-of-cluster: explicit path or default loading rules
+		rules := clientcmd.NewDefaultClientConfigLoadingRules()
+		if kubeconfig != "" {
+			rules.ExplicitPath = kubeconfig
+		}
+		cfg, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			rules, &clientcmd.ConfigOverrides{},
+		).ClientConfig()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.Timeout = 10 * time.Second
+	return dynamic.NewForConfig(cfg)
+}
+
+// ── GVR definitions ───────────────────────────────────────────────────────────
+
+var (
+	gvrKustomizations   = schema.GroupVersionResource{Group: "kustomize.toolkit.fluxcd.io", Version: "v1", Resource: "kustomizations"}
+	gvrGitRepositories  = schema.GroupVersionResource{Group: "source.toolkit.fluxcd.io", Version: "v1", Resource: "gitrepositories"}
+	gvrArgoApplications = schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "applications"}
+)
+
+// ── Flux enrichment ───────────────────────────────────────────────────────────
+
+func enrichFlux(profile *graph.ClusterProfile, client dynamic.Interface) {
 	merged := make(map[string]NodeStatus)
-	for k, v := range fetchFluxResource(kubeconfig, "kustomizations.kustomize.toolkit.fluxcd.io") {
+	for k, v := range fetchResource(client, gvrKustomizations) {
 		merged[k] = v
 	}
-	for k, v := range fetchFluxResource(kubeconfig, "gitrepositories.source.toolkit.fluxcd.io") {
+	for k, v := range fetchResource(client, gvrGitRepositories) {
 		merged[k] = v
 	}
 	applyToProfile(profile, merged)
 }
 
-// EnrichArgoCD enriches an ArgoCD cluster profile via kubectl applications.
-func EnrichArgoCD(profile *graph.ClusterProfile, kubeconfig string) {
-	statuses := fetchArgoResource(kubeconfig, "applications.argoproj.io")
+// ── ArgoCD enrichment ─────────────────────────────────────────────────────────
+
+func enrichArgoCD(profile *graph.ClusterProfile, client dynamic.Interface) {
+	statuses := fetchArgoResource(client, gvrArgoApplications)
 	applyToProfile(profile, statuses)
 }
 
 // ── fetcher helpers ───────────────────────────────────────────────────────────
 
-func fetchFluxResource(kubeconfig, resource string) map[string]NodeStatus {
-	out, err := runKubectl(kubeconfig, "get", resource, "--all-namespaces", "-o", "json")
+func fetchResource(client dynamic.Interface, gvr schema.GroupVersionResource) map[string]NodeStatus {
+	list, err := client.Resource(gvr).Namespace("").List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		return nil
-	}
-	var list k8sList
-	if err := json.Unmarshal(out, &list); err != nil {
+		log.Printf("live: list %s: %v", gvr.Resource, err)
 		return nil
 	}
 	result := make(map[string]NodeStatus)
 	for _, item := range list.Items {
-		result[item.Metadata.Name] = statusFromConditions(item.Status.Conditions)
+		raw, _ := item.MarshalJSON()
+		var ki k8sItem
+		if json.Unmarshal(raw, &ki) == nil {
+			result[ki.Metadata.Name] = statusFromConditions(ki.Status.Conditions)
+		}
 	}
 	return result
 }
 
-func fetchArgoResource(kubeconfig, resource string) map[string]NodeStatus {
-	out, err := runKubectl(kubeconfig, "get", resource, "--all-namespaces", "-o", "json")
+func fetchArgoResource(client dynamic.Interface, gvr schema.GroupVersionResource) map[string]NodeStatus {
+	list, err := client.Resource(gvr).Namespace("").List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		return nil
-	}
-	var list argoList
-	if err := json.Unmarshal(out, &list); err != nil {
+		log.Printf("live: list %s: %v", gvr.Resource, err)
 		return nil
 	}
 	result := make(map[string]NodeStatus)
 	for _, item := range list.Items {
-		result[item.Metadata.Name] = statusFromArgo(item)
+		raw, _ := item.MarshalJSON()
+		var ai argoItem
+		if json.Unmarshal(raw, &ai) == nil {
+			result[ai.Metadata.Name] = statusFromArgo(ai)
+		}
 	}
 	return result
-}
-
-func runKubectl(kubeconfig string, args ...string) ([]byte, error) {
-	if kubeconfig != "" {
-		args = append([]string{"--kubeconfig", kubeconfig}, args...)
-	}
-	return exec.Command("kubectl", args...).Output() //nolint:gosec
 }
 
 // ── status mapping ────────────────────────────────────────────────────────────

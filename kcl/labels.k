@@ -1,6 +1,4 @@
-"""
-Common labels and config instance for clusterscope resources
-"""
+"""Common labels and config instance for clusterscope resources"""
 
 import schema
 
@@ -19,6 +17,7 @@ _gitSyncPeriod = option("config.gitSyncPeriod")
 _gitSyncAuthSecretName = option("config.gitSyncAuthSecretName")
 _gitSyncAuthType = option("config.gitSyncAuthType")
 _gitSyncRepos = option("config.gitSyncRepos")
+_liveMode = option("config.liveMode")
 _httpRouteEnabled = option("config.httpRouteEnabled")
 _gatewayName = option("config.gatewayName")
 _gatewayNamespace = option("config.gatewayNamespace")
@@ -55,6 +54,8 @@ config: schema.ClusterScope = schema.ClusterScope {
         gitSyncAuthType = _gitSyncAuthType
     if _gitSyncRepos:
         gitSyncRepos = _gitSyncRepos
+    if _liveMode:
+        liveMode = _liveMode == True or str(_liveMode) in ["true", "True", "1"]
     if _httpRouteEnabled:
         httpRouteEnabled = _httpRouteEnabled == True or str(_httpRouteEnabled) in ["true", "True", "1"]
     if _gatewayName:

@@ -259,7 +259,7 @@ deployment = {
                             "-root={}".format(config.dir)
                             "-tech={}".format(config.tech)
                             "-serve=:{}".format(config.port)
-                        ]
+                        ] + (["-live"] if config.liveMode else [])
                         ports: [
                             {
                                 name: "http"

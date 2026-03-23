@@ -1,6 +1,4 @@
-"""
-Schema definition for clusterscope deployment configuration
-"""
+"""Schema definition for clusterscope deployment configuration"""
 
 schema GitSyncRepo:
     """Configuration for a single git-sync sidecar watching one repository"""
@@ -50,6 +48,9 @@ schema ClusterScope:
 
     # Technology: flux | argocd
     tech: str = "flux"
+
+    # Enable in-cluster live enrichment via ServiceAccount (no kubectl needed)
+    liveMode: bool = False
 
     # Git-sync sidecar (Kubernetes serve mode)
     gitSyncEnabled: bool = False

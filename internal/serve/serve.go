@@ -509,6 +509,14 @@ func parseCluster(dir string) *graph.ClusterProfile {
 
 // ── preview HTTP handlers ────────────────────────────────────────────────────
 
+func profileNames(profiles map[string]*graph.ClusterProfile) []string {
+	names := make([]string, 0, len(profiles))
+	for n := range profiles {
+		names = append(names, n)
+	}
+	return names
+}
+
 func (s *Server) sanitizeClusterName(path, prefix string) (string, bool) {
 	name := strings.TrimPrefix(path, prefix)
 	name = strings.Trim(name, "/")
@@ -538,14 +546,40 @@ func (s *Server) resolvePreview(name string, r *http.Request) (base, head *graph
 		if pr != "" && ref == "" {
 			ref = "refs/pull/" + pr + "/head"
 		}
-		profiles, cloneErr := s.cloner.FetchProfiles(repo, ref)
+
+		// Clone the PR head ref.
+		headProfiles, cloneErr := s.cloner.FetchProfiles(repo, ref)
 		if cloneErr != nil {
-			return base, nil, cloneErr
+			return nil, nil, cloneErr
 		}
-		// Try exact cluster name match, then fall back to "default" (single-cluster repo).
-		head = profiles[name]
+		log.Printf("preview: cloned %s@%s  found clusters: %v", repo, ref, profileNames(headProfiles))
+		head = headProfiles[name]
 		if head == nil {
-			head = profiles["default"]
+			head = headProfiles["default"]
+		}
+
+		// If base wasn't found in the server cache, clone the base branch too.
+		// This handles repos with deep nesting where the server's root scan
+		// indexes clusters under different names.
+		if base == nil {
+			baseBranch := r.URL.Query().Get("base")
+			if baseBranch == "" {
+				baseBranch = "main"
+			}
+			baseProfiles, baseErr := s.cloner.FetchProfiles(repo, baseBranch)
+			if baseErr != nil {
+				log.Printf("preview: failed to clone base %s@%s: %v", repo, baseBranch, baseErr)
+			} else {
+				base = baseProfiles[name]
+				if base == nil {
+					base = baseProfiles["default"]
+				}
+				log.Printf("preview: cloned base %s@%s  found clusters: %v", repo, baseBranch, profileNames(baseProfiles))
+			}
+		}
+
+		if head == nil && base == nil {
+			log.Printf("preview: cluster %q not found in cloned profiles", name)
 		}
 		return base, head, nil
 	}

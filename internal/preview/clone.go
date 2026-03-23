@@ -6,9 +6,11 @@ package preview
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -121,40 +123,40 @@ func shallowClone(repo, ref string) (string, error) {
 }
 
 // parseDir discovers and parses cluster directories in a cloned repo.
+// It walks the tree recursively to find directories containing GitOps YAML,
+// handling repos with deep nesting like clusters/labul/vsphere/movie-scripts/.
 func parseDir(root string) map[string]*graph.ClusterProfile {
 	profiles := make(map[string]*graph.ClusterProfile)
 
-	// Check if root itself is a single cluster.
-	hasSubClusters := false
-	if dirEntries, err := os.ReadDir(root); err == nil {
-		for _, e := range dirEntries {
-			if e.IsDir() && !isHidden(e.Name()) && scan.HasYAML(root+"/"+e.Name()) {
-				hasSubClusters = true
-				break
-			}
+	// Walk the tree and find directories that contain GitOps YAML and
+	// produce a non-empty graph when parsed.
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			return nil
 		}
-	}
+		if isHidden(d.Name()) {
+			return filepath.SkipDir
+		}
+		if !scan.HasYAML(path) {
+			return nil
+		}
+		p := parseCluster(path)
+		if p != nil && len(p.Graph.Nodes) > 0 {
+			name := filepath.Base(path)
+			profiles[name] = p
+			// Don't descend — this directory is a cluster root.
+			return filepath.SkipDir
+		}
+		return nil
+	})
 
-	if !hasSubClusters && scan.HasYAML(root) {
-		if p := parseCluster(root); p != nil {
+	// If nothing was found via walk but root has YAML, try root as single cluster.
+	if len(profiles) == 0 && scan.HasYAML(root) {
+		if p := parseCluster(root); p != nil && len(p.Graph.Nodes) > 0 {
 			profiles["default"] = p
 		}
-		return profiles
 	}
 
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return profiles
-	}
-	for _, e := range entries {
-		if !e.IsDir() || isHidden(e.Name()) {
-			continue
-		}
-		dir := root + "/" + e.Name()
-		if p := parseCluster(dir); p != nil {
-			profiles[e.Name()] = p
-		}
-	}
 	return profiles
 }
 

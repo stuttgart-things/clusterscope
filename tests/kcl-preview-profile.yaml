@@ -1,0 +1,29 @@
+kcl_options:
+  - key: config.image
+    value: ghcr.io/stuttgart-things/clusterscope:latest
+  - key: config.namespace
+    value: clusterscope
+  - key: config.tech
+    value: flux
+  - key: config.dir
+    value: /data
+  - key: config.port
+    value: "8080"
+  - key: config.replicas
+    value: "1"
+  - key: config.gitSyncEnabled
+    value: "true"
+  - key: config.gitSyncRepo
+    value: https://github.com/stuttgart-things/clusters
+  - key: config.gitSyncBranch
+    value: main
+  - key: config.gitSyncPeriod
+    value: "60s"
+  - key: config.previewEnabled
+    value: "true"
+  - key: config.previewRepo
+    value: https://github.com/stuttgart-things/clusters
+  - key: config.previewRef
+    value: refs/pull/42/head
+  - key: config.previewPeriod
+    value: "30s"

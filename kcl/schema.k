@@ -81,6 +81,21 @@ schema ClusterScope:
     # Auth type: 'https' (token/password) or 'ssh'
     gitSyncAuthType: str = "https"
 
+    # PR preview mode: adds a second git-sync sidecar syncing the PR head ref
+    # into /data/preview/ and passes -preview-root to clusterscope.
+    # The base git-sync data is remapped to /data/base/ when preview is enabled.
+    previewEnabled: bool = False
+    # Git repository URL for the PR (usually the same repo as the base)
+    previewRepo: str = ""
+    # Git ref to sync (e.g. "refs/pull/42/head" or a branch name)
+    previewRef: str = ""
+    # Sync interval for the preview sidecar
+    previewPeriod: str = "30s"
+    # Name of the Kubernetes Secret containing auth credentials for the preview repo
+    previewAuthSecretName: str = ""
+    # Auth type: 'https' or 'ssh'
+    previewAuthType: str = "https"
+
     # HTTPRoute (Gateway API)
     httpRouteEnabled: bool = False
     gatewayName: str = ""
@@ -98,3 +113,7 @@ schema ClusterScope:
         namespace != "", "namespace must not be empty"
         tech in ["flux", "argocd"], "tech must be one of: flux, argocd"
         gitSyncAuthType in ["https", "ssh"], "gitSyncAuthType must be 'https' or 'ssh'"
+        previewAuthType in ["https", "ssh"], "previewAuthType must be 'https' or 'ssh'"
+        not previewEnabled or previewRepo != "", "previewRepo is required when previewEnabled is true"
+        not previewEnabled or previewRef != "", "previewRef is required when previewEnabled is true"
+        not previewEnabled or gitSyncEnabled, "gitSyncEnabled must be true when previewEnabled is true"

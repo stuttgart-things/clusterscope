@@ -59,7 +59,7 @@ _gitSyncContainer = {
     args: [
         "--repo={}".format(config.gitSyncRepo)
         "--ref={}".format(config.gitSyncBranch)
-        "--root=/data"
+        "--root={}".format("/data/base" if config.previewEnabled else "/data")
         "--period={}".format(config.gitSyncPeriod)
         "--depth=1"
     ] + _sshArgs
@@ -218,6 +218,106 @@ _multiGitSyncVolumes = [
     for r in config.gitSyncRepos if r.authSecretName != ""
 ]
 
+# ── Preview sidecar ─────────────────────────────────────────────────────────
+
+# Conditional SSH arg for preview git-sync
+_previewSshArgs = ["--ssh-key-file=/etc/git-sync-secrets/{}/ssh".format(config.previewAuthSecretName)] if config.previewAuthSecretName != "" and config.previewAuthType == "ssh" else []
+
+# Conditional HTTPS auth env vars for preview git-sync
+_previewAuthEnv = [
+    {
+        name: "GITSYNC_USERNAME"
+        valueFrom: {
+            secretKeyRef: {
+                name: config.previewAuthSecretName
+                key: "username"
+            }
+        }
+    }
+    {
+        name: "GITSYNC_PASSWORD"
+        valueFrom: {
+            secretKeyRef: {
+                name: config.previewAuthSecretName
+                key: "password"
+            }
+        }
+    }
+] if config.previewAuthSecretName != "" and config.previewAuthType == "https" else []
+
+# Preview git-sync sidecar container
+_previewContainer = {
+    name: "git-sync-preview"
+    image: config.gitSyncImage
+    args: [
+        "--repo={}".format(config.previewRepo)
+        "--ref={}".format(config.previewRef)
+        "--root=/data/preview"
+        "--period={}".format(config.previewPeriod)
+        "--depth=1"
+    ] + _previewSshArgs
+    env: [
+        {
+            name: "GITSYNC_ONE_TIME"
+            value: "false"
+        }
+    ] + _previewAuthEnv
+    securityContext: {
+        readOnlyRootFilesystem: True
+        runAsNonRoot: True
+        runAsUser: 65533
+        allowPrivilegeEscalation: False
+        capabilities: {
+            drop: ["ALL"]
+        }
+    }
+    resources: {
+        requests: {
+            cpu: "10m"
+            memory: "32Mi"
+        }
+        limits: {
+            cpu: "100m"
+            memory: "128Mi"
+        }
+    }
+    volumeMounts: [
+        {
+            name: "gitdata"
+            mountPath: "/data"
+        }
+        {
+            name: "git-sync-preview-tmp"
+            mountPath: "/tmp"
+        }
+    ] + ([
+        {
+            name: "secret-preview"
+            mountPath: "/etc/git-sync-secrets/{}".format(config.previewAuthSecretName)
+            readOnly: True
+        }
+    ] if config.previewAuthSecretName != "" else [])
+}
+
+# Extra volumes for preview sidecar
+_previewVolumes = [
+    {
+        name: "git-sync-preview-tmp"
+        emptyDir: {}
+    }
+] + ([
+    {
+        name: "secret-preview"
+        secret: {
+            secretName: config.previewAuthSecretName
+        }
+    }
+] if config.previewAuthSecretName != "" else [])
+
+# Preview containers and volumes (empty lists when preview is disabled)
+_previewContainers = [_previewContainer] if config.previewEnabled else []
+_previewSyncVolumes = _previewVolumes if config.previewEnabled else []
+
 # Choose between single-repo and multi-repo mode
 _isMultiRepo = len(config.gitSyncRepos) > 0
 _activeSyncContainers = _multiGitSyncContainers if _isMultiRepo else ([_gitSyncContainer] if config.gitSyncEnabled else [])
@@ -256,10 +356,11 @@ deployment = {
                         image: config.image
                         imagePullPolicy: config.imagePullPolicy
                         args: [
-                            "-root={}".format(config.dir)
+                            "-root={}".format(config.dir + "/base" if config.previewEnabled else config.dir)
                             "-tech={}".format(config.tech)
                             "-serve=:{}".format(config.port)
-                        ] + (["-live"] if config.liveMode else [])
+                        ] + (["-live"] if config.liveMode else []) \
+                          + (["-preview-root={}/preview".format(config.dir)] if config.previewEnabled else [])
                         ports: [
                             {
                                 name: "http"
@@ -312,7 +413,7 @@ deployment = {
                             }
                         ]
                     }
-                ] + _activeSyncContainers
+                ] + _activeSyncContainers + _previewContainers
                 affinity: {
                     podAntiAffinity: {
                         preferredDuringSchedulingIgnoredDuringExecution: [
@@ -346,7 +447,7 @@ deployment = {
                         name: "gitdata"
                         emptyDir: {}
                     }
-                ] + _activeSyncVolumes
+                ] + _activeSyncVolumes + _previewSyncVolumes
             }
         }
     }

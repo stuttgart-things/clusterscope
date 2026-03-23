@@ -7,11 +7,14 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/stuttgart-things/clusterscope/internal/diff"
+	"github.com/stuttgart-things/clusterscope/internal/graph"
 	"github.com/stuttgart-things/clusterscope/internal/render"
 	"github.com/stuttgart-things/clusterscope/internal/scan"
 	"github.com/stuttgart-things/clusterscope/internal/serve"
@@ -40,6 +43,12 @@ func main() {
 	refreshSeconds := flag.Int("refresh", 30, "live status refresh interval in seconds (used with -live)")
 	previewRoot := flag.String("preview-root", "", "directory containing PR head ref cluster files for diff preview (used with -serve)")
 
+	// Diff mode flags
+	diffMode := flag.Bool("diff", false, "compare two cluster directories and output a diff")
+	baseDir := flag.String("base-dir", "", "base cluster directory (used with -diff)")
+	headDir := flag.String("head-dir", "", "head cluster directory (used with -diff)")
+	diffFormat := flag.String("format", "markdown", "diff output format: markdown | json | html (used with -diff)")
+
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `clusterscope — generate an interactive HTML cluster profile from GitOps YAML files
 
@@ -48,6 +57,7 @@ Supported technologies: flux, argocd
 Usage:
   clusterscope -dir <cluster-dir> [-out <output.html>] [-tech flux|argocd]
   clusterscope -serve :8080 -root <clusters-root-dir>
+  clusterscope -diff -base-dir <base> -head-dir <head> [-format markdown|json|html]
 
 Flags:
 `)
@@ -61,10 +71,22 @@ Examples:
   clusterscope -serve :8080 -root /data -repos-config /etc/git-sync/repos.yaml
   clusterscope -serve :8080 -root ./clusters/ -live -kubeconfig ~/.kube/prod
   clusterscope -serve :8080 -root /data/base -preview-root /data/head
+  clusterscope -diff -base-dir ./clusters/prod -head-dir ./pr-clusters/prod
+  clusterscope -diff -base-dir ./base -head-dir ./head -format json
   clusterscope -dir ./clusters/prod -tech flux -live -kubeconfig ~/.kube/prod -out live.html
 `)
 	}
 	flag.Parse()
+
+	// ── Diff mode ─────────────────────────────────────────────────────────────
+	if *diffMode {
+		if *baseDir == "" || *headDir == "" {
+			fmt.Fprintln(os.Stderr, "diff mode requires -base-dir and -head-dir")
+			os.Exit(1)
+		}
+		runDiff(*baseDir, *headDir, *tech, *diffFormat, *out)
+		return
+	}
 
 	// ── Serve mode ────────────────────────────────────────────────────────────
 	if *serveAddr != "" {
@@ -205,5 +227,77 @@ Examples:
 	if *out != "" {
 		abs, _ := filepath.Abs(*out)
 		fmt.Fprintf(os.Stderr, "✓ Written to %s\n", abs)
+	}
+}
+
+// runDiff parses two cluster directories, diffs them, and outputs the result.
+func runDiff(baseDir, headDir, tech, format, outPath string) {
+	baseParse := parseDir(baseDir, tech)
+	headParse := parseDir(headDir, tech)
+	if baseParse == nil && headParse == nil {
+		fmt.Fprintln(os.Stderr, "no cluster data found in either directory")
+		os.Exit(1)
+	}
+
+	var baseGraph, headGraph graph.Graph
+	if baseParse != nil {
+		baseGraph = baseParse.Graph
+	}
+	if headParse != nil {
+		headGraph = headParse.Graph
+	}
+
+	gd := diff.Diff(baseGraph, headGraph)
+	gd.ClusterName = filepath.Base(baseDir)
+
+	w := os.Stdout
+	if outPath != "" {
+		f, err := os.Create(outPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error creating output file: %v\n", err)
+			os.Exit(1)
+		}
+		defer func() { _ = f.Close() }()
+		w = f
+	}
+
+	var err error
+	switch format {
+	case "json":
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		err = enc.Encode(gd)
+	case "html":
+		err = render.WriteDiffHTML(w, gd, baseParse, headParse)
+	default:
+		err = diff.WriteMarkdown(w, gd)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error writing diff: %v\n", err)
+		os.Exit(1)
+	}
+
+	if outPath != "" {
+		abs, _ := filepath.Abs(outPath)
+		fmt.Fprintf(os.Stderr, "✓ diff written to %s\n", abs)
+	}
+}
+
+func parseDir(dir, tech string) *graph.ClusterProfile {
+	switch tech {
+	case "argocd":
+		p, err := argocd.ParseDir(dir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error parsing %s: %v\n", dir, err)
+			return nil
+		}
+		return p
+	default:
+		p, err := flux.ParseDir(dir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error parsing %s: %v\n", dir, err)
+			return nil
+		}
+		return p
 	}
 }

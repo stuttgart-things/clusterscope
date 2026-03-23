@@ -333,8 +333,8 @@ func TestHandlePreview_RendersHTML(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "PR PREVIEW") {
-		t.Error("expected diff template to contain 'PR PREVIEW'")
+	if !strings.Contains(body, "PR preview") {
+		t.Error("expected diff template to contain 'PR preview'")
 	}
 	if !strings.Contains(body, "staging") {
 		t.Error("expected cluster name 'staging' in output")

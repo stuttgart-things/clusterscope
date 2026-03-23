@@ -16,12 +16,13 @@
   .header-left h1{font-size:28px;font-weight:700;color:#e6edf3;letter-spacing:-.5px}
   .header-brand{font-size:13px;font-weight:700;color:#d2a8ff;letter-spacing:.04em;
     display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+  .header-brand-sub{font-size:11px;color:#d2a8ff;opacity:.7;font-weight:400;letter-spacing:.02em}
   .subtitle{margin-top:6px;font-size:13px;color:#8b949e;display:flex;gap:20px;flex-wrap:wrap}
   .subtitle span{display:flex;align-items:center;gap:5px}
   .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
 
   /* SUMMARY BADGES */
-  .summary-bar{display:flex;gap:12px;flex-wrap:wrap;padding:14px 20px;
+  .summary-bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:14px 20px;
     background:#161b22;border:1px solid #30363d;border-radius:12px}
   .summary-badge{display:flex;align-items:center;gap:7px;padding:6px 14px;
     border-radius:20px;font-size:13px;font-weight:600;border:1px solid}
@@ -30,13 +31,28 @@
   .summary-badge.modified{background:#2b1d0e;border-color:#f0883e66;color:#f0883e}
   .summary-badge.same{background:#21262d;border-color:#30363d;color:#8b949e}
 
-  /* VIEW TOGGLE */
-  .view-toggle{display:flex;gap:0;background:#21262d;border:1px solid #30363d;
-    border-radius:8px;overflow:hidden;margin-left:auto}
-  .view-btn{padding:8px 18px;font-size:12px;font-weight:600;color:#8b949e;cursor:pointer;
-    border:none;background:transparent;transition:all .2s}
-  .view-btn.active{background:#58a6ff;color:#0d1117}
-  .view-btn:hover:not(.active){color:#e6edf3}
+  /* FILTER BAR */
+  .filter-bar{background:#161b22;border:1px solid #30363d;border-radius:12px;
+    padding:14px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  .filter-label{font-size:11px;font-weight:700;text-transform:uppercase;
+    letter-spacing:1px;color:#8b949e;margin-right:4px}
+  .toggle-btn{display:flex;align-items:center;gap:7px;background:#21262d;border:1px solid #30363d;
+    border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;
+    transition:all .2s;user-select:none;color:#e6edf3}
+  .btn-dot{width:9px;height:9px;border-radius:50%;transition:background .2s}
+  .toggle-btn.active{border-color:var(--c);background:color-mix(in srgb,var(--c) 15%,#21262d)}
+  .toggle-btn.active .btn-dot{background:var(--c);box-shadow:0 0 5px var(--c)}
+  .toggle-btn:not(.active){opacity:.45}
+  .toggle-btn:not(.active) .btn-dot{background:#444c56}
+  .toggle-btn:hover{opacity:1!important}
+  .filter-sep{width:1px;height:24px;background:#30363d}
+  .search-box{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:7px 12px;
+    font-size:12px;color:#e6edf3;outline:none;width:200px;transition:border-color .2s}
+  .search-box:focus{border-color:#58a6ff}
+  .search-box::placeholder{color:#444c56}
+  .reset-btn{margin-left:auto;background:#21262d;border:1px solid #30363d;border-radius:20px;
+    padding:6px 14px;font-size:11px;color:#7d8590;cursor:pointer;transition:all .15s}
+  .reset-btn:hover{color:#e6edf3;border-color:#58a6ff}
 
   /* GRAPH */
   .graph-section{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px}
@@ -46,51 +62,63 @@
   svg#graph{width:100%;display:block}
   .legend{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px}
   .legend-item{display:flex;align-items:center;gap:7px;font-size:12px;color:#8b949e}
-  .legend-swatch{width:16px;height:4px;border-radius:2px}
-
-  /* DIFF-SPECIFIC NODE STYLES */
-  .node-added rect{stroke:#3fb950;stroke-width:2;filter:drop-shadow(0 0 6px #3fb95066)}
-  .node-removed rect{stroke:#f85149;stroke-width:2;stroke-dasharray:6,3;opacity:.6}
-  .node-modified rect{stroke:#f0883e;stroke-width:2;filter:drop-shadow(0 0 6px #f0883e66)}
-  .node-same rect{stroke:#30363d;stroke-width:1;opacity:.5}
-  .node-removed text{text-decoration:line-through;opacity:.5}
-
-  .edge-added{stroke:#3fb950!important;stroke-dasharray:8,4}
-  .edge-removed{stroke:#f85149!important;stroke-dasharray:4,4;opacity:.5}
-  .edge-same{stroke:#30363d!important;opacity:.3}
+  .legend-dot{width:12px;height:12px;border-radius:3px}
 
   /* CHANGES PANEL */
   .changes-panel{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px}
   .change-item{padding:12px 16px;border:1px solid #30363d;border-radius:8px;margin-bottom:8px;
-    background:#0d1117}
+    background:#0d1117;cursor:pointer;transition:border-color .2s,background .2s}
+  .change-item:hover{border-color:#58a6ff;background:#1c2431}
   .change-item.added{border-left:3px solid #3fb950}
   .change-item.removed{border-left:3px solid #f85149}
   .change-item.modified{border-left:3px solid #f0883e}
+  .change-header{display:flex;align-items:center;gap:8px}
   .change-name{font-size:14px;font-weight:600;color:#e6edf3}
   .change-kind{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
-    padding:2px 8px;border-radius:4px;margin-left:8px}
+    padding:2px 8px;border-radius:4px}
   .change-kind.added{background:#0d2b1a;color:#3fb950}
   .change-kind.removed{background:#2d1117;color:#f85149}
   .change-kind.modified{background:#2b1d0e;color:#f0883e}
+  .change-type{font-size:11px;color:#8b949e;margin-left:auto}
   .change-fields{margin-top:8px;font-size:12px;color:#8b949e}
-  .change-field{display:flex;gap:8px;padding:2px 0}
-  .change-field-name{color:#d2a8ff;min-width:80px;font-weight:600}
-  .change-old{color:#f85149;text-decoration:line-through}
-  .change-new{color:#3fb950}
+  .change-field{display:flex;gap:8px;padding:3px 0;align-items:baseline}
+  .change-field-name{color:#d2a8ff;min-width:80px;font-weight:600;font-size:11px}
+  .change-old{color:#f85149;text-decoration:line-through;font-family:'Consolas',monospace;font-size:11px}
+  .change-new{color:#3fb950;font-family:'Consolas',monospace;font-size:11px}
+  .change-arrow{color:#444c56;font-size:11px}
 
-  /* DETAIL PANEL (reuse from main template) */
-  .detail-panel{position:fixed;top:0;right:-420px;width:400px;height:100vh;
-    background:#161b22;border-left:1px solid #30363d;padding:20px;overflow-y:auto;
-    transition:right .3s;z-index:1000;box-shadow:-4px 0 20px #00000066}
-  .detail-panel.open{right:0}
-  .detail-close{position:absolute;top:12px;right:12px;background:none;border:none;
-    color:#8b949e;font-size:20px;cursor:pointer}
-  .detail-close:hover{color:#e6edf3}
-  .detail-title{font-size:18px;font-weight:700;margin-bottom:16px;padding-right:30px}
-  .detail-row{display:flex;justify-content:space-between;padding:8px 0;
-    border-bottom:1px solid #21262d;font-size:13px}
-  .detail-label{color:#8b949e}
-  .detail-value{color:#e6edf3;text-align:right;max-width:240px;word-break:break-all}
+  /* DETAIL PANEL */
+  #detail-panel{position:fixed;top:80px;left:20px;width:320px;background:#161b22;
+    border:1px solid #d2a8ff;border-radius:12px;padding:16px;z-index:100;
+    box-shadow:0 8px 32px #00000088;display:none;animation:slideIn .2s ease}
+  @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+  #detail-panel h4{color:#d2a8ff;font-size:14px;margin-bottom:10px;border-bottom:1px solid #30363d;
+    padding-bottom:8px;display:flex;align-items:center;gap:8px}
+  .dp-row{display:flex;gap:8px;margin-bottom:6px;font-size:12px}
+  .dp-key{color:#7d8590;min-width:80px}
+  .dp-val{color:#e6edf3;font-family:monospace;font-size:11px;word-break:break-all}
+  .dp-sub{margin-top:8px;padding-top:8px;border-top:1px solid #30363d}
+  .dp-sub-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#7d8590;margin-bottom:4px}
+  .dp-sub-item{font-size:10px;font-family:monospace;color:#8b949e;margin-bottom:2px;display:flex;gap:6px}
+  .dp-sub-key{color:#d2a8ff}
+  #detail-close{position:absolute;top:10px;right:12px;cursor:pointer;color:#7d8590;font-size:16px;line-height:1;
+    background:none;border:none}
+  #detail-close:hover{color:#e6edf3}
+
+  /* PRINT STYLES */
+  .print-btn{background:#21262d;border:1px solid #30363d;border-radius:20px;
+    padding:6px 14px;font-size:12px;color:#8b949e;cursor:pointer;display:flex;
+    align-items:center;gap:6px;transition:all .2s;white-space:nowrap}
+  .print-btn:hover{border-color:#d2a8ff;color:#d2a8ff}
+  @media print{
+    *{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    body{font-size:10pt}
+    .poster{padding:0;gap:10pt;max-width:100%}
+    @page{margin:1cm;size:A4 landscape}
+    .filter-bar,.print-btn,#detail-panel{display:none!important}
+    svg#graph{width:100%!important;max-height:280pt}
+    .change-item{break-inside:avoid}
+  }
 </style>
 </head>
 <body>
@@ -98,19 +126,15 @@
   <!-- HEADER -->
   <div class="header">
     <div class="header-left">
-      <div class="header-brand">CLUSTERSCOPE <span class="header-brand-sub">PR PREVIEW</span></div>
-      <h1>{{.ClusterName}}</h1>
+      <div class="header-brand">clusterscope <span class="header-brand-sub">PR preview</span></div>
+      <h1>{{.ClusterName}} <span style="color:#8b949e;font-weight:400">diff</span></h1>
       <div class="subtitle">
-        <span>base vs head diff</span>
+        <span>base vs head</span>
         {{if .Technology}}<span>{{.Technology}}</span>{{end}}
       </div>
     </div>
     <div class="header-right">
-      <div class="view-toggle">
-        <button class="view-btn active" onclick="setView('diff')">Diff</button>
-        <button class="view-btn" onclick="setView('before')">Before</button>
-        <button class="view-btn" onclick="setView('after')">After</button>
-      </div>
+      <button class="print-btn" onclick="window.print()">Print</button>
     </div>
   </div>
 
@@ -122,31 +146,63 @@
     <div class="summary-badge same">{{.Summary.Same}} unchanged</div>
   </div>
 
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <span class="filter-label">View</span>
+    <button class="toggle-btn active" style="--c:#d2a8ff" data-view="diff" onclick="setView('diff',this)"><span class="btn-dot"></span> Diff</button>
+    <button class="toggle-btn" style="--c:#58a6ff" data-view="before" onclick="setView('before',this)"><span class="btn-dot"></span> Before</button>
+    <button class="toggle-btn" style="--c:#58a6ff" data-view="after" onclick="setView('after',this)"><span class="btn-dot"></span> After</button>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Filter</span>
+    <button class="toggle-btn active" style="--c:#3fb950" data-filter="added" onclick="toggleFilter('added',this)"><span class="btn-dot"></span> Added</button>
+    <button class="toggle-btn active" style="--c:#f85149" data-filter="removed" onclick="toggleFilter('removed',this)"><span class="btn-dot"></span> Removed</button>
+    <button class="toggle-btn active" style="--c:#f0883e" data-filter="modified" onclick="toggleFilter('modified',this)"><span class="btn-dot"></span> Modified</button>
+    <button class="toggle-btn active" style="--c:#30363d" data-filter="same" onclick="toggleFilter('same',this)"><span class="btn-dot"></span> Unchanged</button>
+    <div class="filter-sep"></div>
+    <input class="search-box" id="node-search" placeholder="Search nodes..." oninput="searchNodes(this.value)"/>
+    <button class="reset-btn" onclick="resetAll()">Reset</button>
+  </div>
+
   <!-- GRAPH -->
   <div class="graph-section">
-    <div class="section-title">Dependency Graph</div>
-    <div class="legend">
-      <div class="legend-item"><div class="legend-swatch" style="background:#3fb950"></div> Added</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#f85149"></div> Removed</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#f0883e"></div> Modified</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#30363d"></div> Unchanged</div>
+    <div class="section-title">Dependency Graph
+      <span style="font-size:11px;color:#8b949e;font-weight:400;text-transform:none;letter-spacing:0">
+        — click node for details · hover to highlight edges
+      </span>
     </div>
-    <svg id="graph" height="500"></svg>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>Added</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f85149"></div>Removed</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f0883e"></div>Modified</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#30363d"></div>Unchanged</div>
+      <div class="legend-item">
+        <svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="#3fb950" stroke-width="1.5" stroke-dasharray="5,3"/></svg>
+        new edge
+      </div>
+      <div class="legend-item">
+        <svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" stroke="#f85149" stroke-width="1.5" stroke-dasharray="3,3"/></svg>
+        removed edge
+      </div>
+    </div>
+    <svg id="graph"></svg>
   </div>
 
   <!-- CHANGES LIST -->
   <div class="changes-panel">
     <div class="section-title">Changes ({{.ChangeCount}})</div>
     {{range .Changes}}
-    <div class="change-item {{.Kind}}">
-      <span class="change-name">{{.Node.ID}}</span>
-      <span class="change-kind {{.Kind}}">{{.Kind}}</span>
+    <div class="change-item {{.Kind}}" data-node-id="{{.Node.ID}}" onclick="highlightNode('{{.Node.ID}}')">
+      <div class="change-header">
+        <span class="change-name">{{.Node.ID}}</span>
+        <span class="change-kind {{.Kind}}">{{.Kind}}</span>
+        <span class="change-type">{{.Node.Type}}</span>
+      </div>
       {{if .Changes}}
       <div class="change-fields">
         {{range .Changes}}
         <div class="change-field">
           <span class="change-field-name">{{.Field}}</span>
-          {{if .Old}}<span class="change-old">{{.Old}}</span>{{end}}
+          {{if .Old}}<span class="change-old">{{.Old}}</span><span class="change-arrow">&rarr;</span>{{end}}
           <span class="change-new">{{.New}}</span>
         </div>
         {{end}}
@@ -161,146 +217,361 @@
 </div>
 
 <!-- DETAIL PANEL -->
-<div class="detail-panel" id="detailPanel">
-  <button class="detail-close" onclick="closeDetail()">&times;</button>
-  <div id="detailContent"></div>
+<div id="detail-panel">
+  <button id="detail-close" onclick="document.getElementById('detail-panel').style.display='none'">&#10005;</button>
+  <h4 id="dp-title">—</h4>
+  <div id="dp-body"></div>
 </div>
 
 <script>
+/* ═══════════ DATA ═══════════ */
 const diffData = {{.DiffDataJSON}};
 
-// Current view mode
-let currentView = 'diff';
+/* ═══════════ COLORS ═══════════ */
+const DIFF_COLORS = {
+  added:    '#3fb950',
+  removed:  '#f85149',
+  modified: '#f0883e',
+  same:     '#30363d',
+};
+const TYPE_COLORS = {
+  infra:    '#f78166',
+  apps:     '#3fb950',
+  homerun2: '#d2a8ff',
+  profile:  '#58a6ff',
+  source:   '#ffa657',
+  argoapp:  '#a78bfa',
+  argoappset:'#34d399',
+  argoproject:'#60a5fa',
+};
 
-function setView(mode) {
+/* ═══════════ STATE ═══════════ */
+let currentView = 'diff';
+const filterState = {added:true, removed:true, modified:true, same:true};
+let searchQuery = '';
+
+/* ═══════════ GRAPH CONSTANTS ═══════════ */
+const SVG_W = 1540;
+const ROW_H = 110;
+const NODE_W = 140;
+const NODE_H = 52;
+const PAD_X = 50;
+
+/* ═══════════ VIEW / FILTER CONTROLS ═══════════ */
+function setView(mode, btn) {
   currentView = mode;
-  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector(`.view-btn[onclick="setView('${mode}')"]`).classList.add('active');
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
   renderGraph();
 }
 
-function closeDetail() {
-  document.getElementById('detailPanel').classList.remove('open');
+function toggleFilter(kind, btn) {
+  filterState[kind] = !filterState[kind];
+  btn.classList.toggle('active', filterState[kind]);
+  renderGraph();
+  updateChangesList();
 }
 
-function showDetail(nd) {
-  const panel = document.getElementById('detailPanel');
-  const content = document.getElementById('detailContent');
-  let html = `<div class="detail-title">${nd.node.id}</div>`;
-  html += `<div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="change-kind ${nd.kind}">${nd.kind}</span></span></div>`;
-  html += `<div class="detail-row"><span class="detail-label">Type</span><span class="detail-value">${nd.node.type || '-'}</span></div>`;
-  html += `<div class="detail-row"><span class="detail-label">Path</span><span class="detail-value">${nd.node.path || '-'}</span></div>`;
-  html += `<div class="detail-row"><span class="detail-label">Version</span><span class="detail-value">${nd.node.version || '-'}</span></div>`;
-  html += `<div class="detail-row"><span class="detail-label">Source</span><span class="detail-value">${nd.node.source || '-'}</span></div>`;
-  if (nd.changes && nd.changes.length > 0) {
-    html += `<div style="margin-top:16px;font-size:12px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:1px">Field Changes</div>`;
-    nd.changes.forEach(c => {
-      html += `<div class="detail-row"><span class="detail-label">${c.field}</span><span class="detail-value"><span class="change-old">${c.old || ''}</span> <span class="change-new">${c.new || ''}</span></span></div>`;
-    });
+function searchNodes(q) {
+  searchQuery = q.toLowerCase().trim();
+  updateGraphHighlight();
+  updateChangesList();
+}
+
+function resetAll() {
+  currentView = 'diff';
+  Object.keys(filterState).forEach(k => filterState[k] = true);
+  searchQuery = '';
+  document.getElementById('node-search').value = '';
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.add('active'));
+  document.querySelector('[data-view="diff"]').classList.add('active');
+  document.querySelectorAll('[data-view="before"],[data-view="after"]').forEach(b => b.classList.remove('active'));
+  renderGraph();
+  updateChangesList();
+}
+
+function updateChangesList() {
+  document.querySelectorAll('.change-item').forEach(el => {
+    const classes = el.className;
+    const kind = ['added','removed','modified'].find(k => classes.includes(k)) || 'same';
+    const name = el.dataset.nodeId || '';
+    const matchFilter = filterState[kind];
+    const matchSearch = !searchQuery || name.toLowerCase().includes(searchQuery);
+    el.style.display = matchFilter && matchSearch ? '' : 'none';
+  });
+}
+
+/* ═══════════ HIGHLIGHT NODE FROM CHANGES PANEL ═══════════ */
+function highlightNode(id) {
+  const nodeG = d3.select(`[data-node-id="${id}"]`);
+  if (!nodeG.empty()) {
+    // Flash the node
+    nodeG.select('rect')
+      .transition().duration(150).attr('stroke-width', 4)
+      .transition().duration(400).attr('stroke-width', 2);
   }
-  content.innerHTML = html;
-  panel.classList.add('open');
+  // Also open the detail panel
+  const nd = diffData.nodes.find(n => n.node.id === id);
+  if (nd) showDetail(nd);
+}
+
+/* ═══════════ D3 GRAPH ═══════════ */
+let graphNodes, graphEdges, graphNodeGs;
+
+function getVisibleData() {
+  let nodes = diffData.nodes.filter(nd => {
+    if (currentView === 'before' && nd.kind === 'added') return false;
+    if (currentView === 'after' && nd.kind === 'removed') return false;
+    if (!filterState[nd.kind]) return false;
+    return true;
+  });
+  let edges = diffData.edges.filter(ed => {
+    if (currentView === 'before' && ed.kind === 'added') return false;
+    if (currentView === 'after' && ed.kind === 'removed') return false;
+    if (!filterState[ed.kind]) return false;
+    return true;
+  });
+  return {nodes, edges};
 }
 
 function renderGraph() {
   const svg = d3.select('#graph');
   svg.selectAll('*').remove();
-  const width = svg.node().parentElement.clientWidth - 32;
-  const height = 500;
-  svg.attr('viewBox', `0 0 ${width} ${height}`);
 
-  // Filter nodes based on view
-  let nodes = diffData.nodes.filter(nd => {
-    if (currentView === 'before') return nd.kind !== 'added';
-    if (currentView === 'after') return nd.kind !== 'removed';
-    return true;
+  const {nodes, edges} = getVisibleData();
+  if (nodes.length === 0) {
+    svg.attr('viewBox', `0 0 ${SVG_W} 100`).attr('height', 100);
+    svg.append('text').attr('x', SVG_W/2).attr('y', 50).attr('text-anchor','middle')
+      .attr('fill','#444c56').attr('font-size',14).text('No nodes to display');
+    return;
+  }
+
+  // Build node map with positions (layered DAG like main template)
+  const nodeMap = {};
+  const layerBuckets = {};
+  nodes.forEach(nd => {
+    const layer = nd.node.layer || 0;
+    (layerBuckets[layer] = layerBuckets[layer] || []).push(nd);
+    nodeMap[nd.node.id] = nd;
+  });
+  const maxLayer = Math.max(...Object.keys(layerBuckets).map(Number));
+  const totalH = 30 + (maxLayer + 1) * ROW_H + 20;
+
+  // Assign positions
+  nodes.forEach(nd => {
+    const layer = nd.node.layer || 0;
+    const siblings = layerBuckets[layer];
+    const totalW = SVG_W - PAD_X * 2;
+    const step = totalW / Math.max(siblings.length, 1);
+    const idx = siblings.indexOf(nd);
+    nd._x = PAD_X + step * idx + step / 2;
+    nd._y = 30 + layer * ROW_H + NODE_H / 2;
   });
 
-  let edges = diffData.edges.filter(ed => {
-    if (currentView === 'before') return ed.kind !== 'added';
-    if (currentView === 'after') return ed.kind !== 'removed';
-    return true;
-  });
+  svg.attr('viewBox', `0 0 ${SVG_W} ${totalH}`).attr('height', Math.min(totalH, 650));
 
-  const nodeIds = new Set(nodes.map(n => n.node.id));
-
-  // Build simulation nodes/links
-  const simNodes = nodes.map(nd => ({
-    id: nd.node.id,
-    kind: nd.kind,
-    data: nd,
-    layer: nd.node.layer || 0
-  }));
-  const simLinks = edges
-    .filter(ed => nodeIds.has(ed.edge.s) && nodeIds.has(ed.edge.t))
-    .map(ed => ({
-      source: ed.edge.s,
-      target: ed.edge.t,
-      edgeKind: ed.edge.kind,
-      diffKind: ed.kind
-    }));
-
-  const g = svg.append('g');
-
-  // Zoom
-  svg.call(d3.zoom().scaleExtent([0.3, 3]).on('zoom', e => g.attr('transform', e.transform)));
-
-  // Arrow markers
+  // Defs: arrow markers
   const defs = svg.append('defs');
   ['added','removed','modified','same'].forEach(kind => {
-    const color = kind === 'added' ? '#3fb950' : kind === 'removed' ? '#f85149' : kind === 'modified' ? '#f0883e' : '#30363d';
     defs.append('marker').attr('id', `arrow-${kind}`).attr('viewBox','0 -5 10 10')
-      .attr('refX',25).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6)
+      .attr('refX',10).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6)
       .attr('orient','auto').append('path').attr('d','M0,-5L10,0L0,5')
-      .attr('fill', color);
+      .attr('fill', DIFF_COLORS[kind]);
+  });
+  // Edge arrow for "in view mode where diff colors don't apply"
+  defs.append('marker').attr('id','arrow-edge-dep').attr('viewBox','0 -5 10 10')
+    .attr('refX',10).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6)
+    .attr('orient','auto').append('path').attr('d','M0,-5L10,0L0,5').attr('fill','#f0883e');
+  defs.append('marker').attr('id','arrow-edge-watch').attr('viewBox','0 -5 10 10')
+    .attr('refX',10).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6)
+    .attr('orient','auto').append('path').attr('d','M0,-5L10,0L0,5').attr('fill','#444c56');
+
+  // Layer bands
+  const bandColors = ['#161b22','#161b22','#1a2130','#1a2130','#1c1f2e','#1a1f2e','#1c1f2e'];
+  for (let l = 0; l <= maxLayer; l++) {
+    svg.append('rect').attr('x',0).attr('y',30+l*ROW_H-8)
+      .attr('width',SVG_W).attr('height',ROW_H)
+      .attr('fill',bandColors[l]||'#161b22').attr('opacity',0.6);
+  }
+
+  // Filter edges to those with visible endpoints
+  const nodeIds = new Set(nodes.map(n => n.node.id));
+  const visibleEdges = edges.filter(ed => nodeIds.has(ed.edge.s) && nodeIds.has(ed.edge.t));
+
+  // Edges (bezier curves)
+  const edgePaths = svg.append('g').selectAll('path').data(visibleEdges).join('path')
+    .attr('d', d => {
+      const s = nodeMap[d.edge.s], t = nodeMap[d.edge.t];
+      if (!s || !t) return '';
+      const x1 = s._x, y1 = s._y + NODE_H/2 - 2;
+      const x2 = t._x, y2 = t._y - NODE_H/2 + 2;
+      const my = (y1 + y2) / 2;
+      return `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`;
+    })
+    .attr('fill', 'none')
+    .attr('stroke', d => {
+      if (currentView !== 'diff') return d.edge.kind === 'dependsOn' ? '#f0883e' : '#30363d';
+      return DIFF_COLORS[d.kind] || '#30363d';
+    })
+    .attr('stroke-width', d => (d.kind === 'added' || d.kind === 'removed') ? 1.5 : 1)
+    .attr('stroke-dasharray', d => {
+      if (currentView !== 'diff') return d.edge.kind === 'dependsOn' ? '5,3' : 'none';
+      if (d.kind === 'added') return '6,3';
+      if (d.kind === 'removed') return '4,3';
+      return 'none';
+    })
+    .attr('opacity', d => {
+      if (d.kind === 'same') return 0.35;
+      if (d.kind === 'removed') return 0.5;
+      return 0.8;
+    })
+    .attr('marker-end', d => {
+      if (currentView !== 'diff') return d.edge.kind === 'dependsOn' ? 'url(#arrow-edge-dep)' : 'url(#arrow-edge-watch)';
+      return `url(#arrow-${d.kind})`;
+    });
+
+  // Node groups
+  graphNodeGs = svg.append('g').selectAll('g').data(nodes).join('g')
+    .attr('transform', d => `translate(${d._x},${d._y})`)
+    .attr('data-node-id', d => d.node.id)
+    .style('cursor', 'pointer')
+    .on('click', (event, d) => showDetail(d, event))
+    .on('mouseover', function(_, d) {
+      d3.select(this).select('rect').attr('fill','#2d333b').attr('stroke-width', 3);
+      edgePaths.attr('opacity', e => (e.edge.s === d.node.id || e.edge.t === d.node.id) ? 1 : 0.06);
+    })
+    .on('mouseout', function(_, d) {
+      d3.select(this).select('rect').attr('fill','#21262d').attr('stroke-width', d.kind === 'same' ? 1 : 2);
+      edgePaths.attr('opacity', e => {
+        if (e.kind === 'same') return 0.35;
+        if (e.kind === 'removed') return 0.5;
+        return 0.8;
+      });
+    });
+
+  // Node rects
+  graphNodeGs.append('rect')
+    .attr('x', -NODE_W/2).attr('y', -NODE_H/2).attr('width', NODE_W).attr('height', NODE_H).attr('rx', 7)
+    .attr('fill', '#21262d')
+    .attr('stroke', d => {
+      if (currentView !== 'diff') return TYPE_COLORS[d.node.type] || '#58a6ff';
+      return DIFF_COLORS[d.kind] || '#30363d';
+    })
+    .attr('stroke-width', d => d.kind === 'same' ? 1 : 2)
+    .attr('stroke-dasharray', d => d.kind === 'removed' ? '6,3' : 'none')
+    .attr('opacity', d => d.kind === 'same' ? 0.5 : 1);
+
+  // Diff kind indicator dot (top-right of node)
+  graphNodeGs.filter(d => d.kind !== 'same' && currentView === 'diff').append('circle')
+    .attr('cx', NODE_W/2 - 8).attr('cy', -NODE_H/2 + 8).attr('r', 4)
+    .attr('fill', d => DIFF_COLORS[d.kind]);
+
+  // Node text (split long names like main template)
+  graphNodeGs.each(function(d) {
+    const g = d3.select(this);
+    const id = d.node.id;
+    const words = id.split(/[-_]/);
+    const lines = words.length > 2
+      ? [words.slice(0, Math.ceil(words.length/2)).join('-'), words.slice(Math.ceil(words.length/2)).join('-')]
+      : [id];
+
+    const textColor = currentView === 'diff' ? DIFF_COLORS[d.kind] || '#8b949e' : TYPE_COLORS[d.node.type] || '#58a6ff';
+    const textOpacity = d.kind === 'same' && currentView === 'diff' ? 0.5 : 1;
+
+    if (lines.length === 1) {
+      g.append('text').attr('y', -4).attr('text-anchor','middle').attr('font-size',11)
+        .attr('font-weight', 700).attr('fill', textColor).attr('opacity', textOpacity)
+        .attr('font-family','Segoe UI,sans-serif')
+        .attr('text-decoration', d.kind === 'removed' ? 'line-through' : 'none')
+        .text(lines[0]);
+    } else {
+      lines.forEach((line, i) => {
+        g.append('text').attr('y', -10 + i*13).attr('text-anchor','middle').attr('font-size',10)
+          .attr('font-weight', 700).attr('fill', textColor).attr('opacity', textOpacity)
+          .attr('font-family','Segoe UI,sans-serif')
+          .attr('text-decoration', d.kind === 'removed' ? 'line-through' : 'none')
+          .text(line);
+      });
+    }
+    // Subtitle
+    const sub = d.node.sub || d.node.type;
+    g.append('text').attr('y', lines.length > 1 ? 17 : 11).attr('text-anchor','middle')
+      .attr('font-size', 9).attr('fill','#7d8590').attr('font-family','Consolas,monospace')
+      .attr('opacity', textOpacity)
+      .text(sub);
   });
 
-  // Force layout
-  const simulation = d3.forceSimulation(simNodes)
-    .force('link', d3.forceLink(simLinks).id(d => d.id).distance(120))
-    .force('charge', d3.forceManyBody().strength(-400))
-    .force('x', d3.forceX(d => 100 + d.layer * (width - 200) / 4).strength(0.3))
-    .force('y', d3.forceY(height / 2).strength(0.1))
-    .force('collision', d3.forceCollide(50));
+  updateGraphHighlight();
+}
 
-  // Edges
-  const link = g.selectAll('.link')
-    .data(simLinks).join('line')
-    .attr('class', d => `link edge-${d.diffKind}`)
-    .attr('stroke-width', 1.5)
-    .attr('marker-end', d => `url(#arrow-${d.diffKind})`);
-
-  // Nodes
-  const node = g.selectAll('.node')
-    .data(simNodes).join('g')
-    .attr('class', d => `node node-${d.kind}`)
-    .style('cursor', 'pointer')
-    .call(d3.drag()
-      .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
-      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
-      .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
-    )
-    .on('click', (e, d) => showDetail(d.data));
-
-  node.append('rect')
-    .attr('width', 140).attr('height', 36).attr('rx', 6)
-    .attr('x', -70).attr('y', -18)
-    .attr('fill', '#0d1117');
-
-  node.append('text')
-    .attr('text-anchor', 'middle').attr('dy', '0.35em')
-    .attr('fill', d => d.kind === 'added' ? '#3fb950' : d.kind === 'removed' ? '#f85149' : d.kind === 'modified' ? '#f0883e' : '#8b949e')
-    .attr('font-size', '11px').attr('font-weight', 600)
-    .text(d => d.id.length > 18 ? d.id.slice(0, 16) + '..' : d.id);
-
-  simulation.on('tick', () => {
-    link
-      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
-      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-    node.attr('transform', d => `translate(${d.x},${d.y})`);
+function updateGraphHighlight() {
+  if (!graphNodeGs) return;
+  graphNodeGs.each(function(d) {
+    const match = !searchQuery || d.node.id.toLowerCase().includes(searchQuery);
+    d3.select(this).transition().duration(200).attr('opacity', match ? (d.kind === 'same' && currentView === 'diff' ? 0.5 : 1) : 0.08);
   });
 }
 
+/* ═══════════ DETAIL PANEL ═══════════ */
+function showDetail(d, event) {
+  const panel = document.getElementById('detail-panel');
+  if (event) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const pw = 340, ph = 400;
+    let x = event.clientX + 16, y = event.clientY - 40;
+    if (x + pw > vw - 8) x = event.clientX - pw - 16;
+    if (y + ph > vh - 8) y = vh - ph - 8;
+    if (y < 8) y = 8;
+    panel.style.left = x + 'px';
+    panel.style.top  = y + 'px';
+    panel.style.right = 'auto';
+  }
+
+  const kindBadge = `<span class="change-kind ${d.kind}" style="font-size:10px">${d.kind}</span>`;
+  document.getElementById('dp-title').innerHTML = d.node.id + ' ' + kindBadge;
+
+  const rows = [
+    ['Layer',    d.node.type],
+    ['Source',   d.node.source || '—'],
+    ['Path',     d.node.path || '—'],
+    ['Version',  d.node.version || '—'],
+    ['Interval', d.node.interval || '—'],
+    ['Domain',   d.node.domain || '—'],
+    ['DependsOn',d.node.dependsOn?.join(', ') || '—'],
+  ];
+
+  let html = rows.map(([k,v]) =>
+    `<div class="dp-row"><span class="dp-key">${k}</span><span class="dp-val">${v}</span></div>`
+  ).join('');
+
+  if (d.changes && d.changes.length > 0) {
+    html += `<div class="dp-sub"><div class="dp-sub-title">Field Changes</div>`;
+    d.changes.forEach(c => {
+      html += `<div class="dp-sub-item">
+        <span class="dp-sub-key">${c.field}</span>
+        <span><span style="color:#f85149;text-decoration:line-through">${c.old || ''}</span>
+        <span style="color:#444c56">&rarr;</span>
+        <span style="color:#3fb950">${c['new'] || ''}</span></span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (d.node.substitute && Object.keys(d.node.substitute).length) {
+    html += `<div class="dp-sub"><div class="dp-sub-title">Substitutions</div>`;
+    const entries = Object.entries(d.node.substitute);
+    entries.slice(0, 8).forEach(([k,v]) => {
+      html += `<div class="dp-sub-item"><span class="dp-sub-key">${k}</span><span>${v.length > 30 ? v.slice(0,30) + '...' : v}</span></div>`;
+    });
+    if (entries.length > 8) html += `<div style="font-size:10px;color:#444c56">+${entries.length-8} more...</div>`;
+    html += `</div>`;
+  }
+
+  document.getElementById('dp-body').innerHTML = html;
+  panel.style.display = 'block';
+}
+
+/* ═══════════ INIT ═══════════ */
 renderGraph();
 </script>
 </body>

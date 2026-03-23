@@ -13,6 +13,11 @@ service = {
         name: config.name
         namespace: config.namespace
         labels: labels.commonLabels
+        annotations: {
+            "prometheus.io/scrape": "true"
+            "prometheus.io/port": str(config.port)
+            "prometheus.io/path": "/metrics"
+        }
     }
     spec: {
         selector: labels.selectorLabels

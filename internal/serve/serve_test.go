@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 )
 
@@ -53,20 +55,20 @@ func TestHandleReadyz_Ready(t *testing.T) {
 	}
 }
 
-func newTestServer(profiles map[string]*graph.ClusterProfile, scanErrors map[string]string, liveMode bool) *Server {
+func newTestServer(profiles map[string]*graph.ClusterProfile, errs map[string]string, liveMode bool) *Server {
 	scanned := make(map[string]time.Time)
 	for name := range profiles {
 		scanned[name] = time.Now()
 	}
-	for name := range scanErrors {
+	for name := range errs {
 		scanned[name] = time.Now()
 	}
 	return &Server{
-		cache:      profiles,
-		scanErrors: scanErrors,
-		scanned:    scanned,
-		refreshed:  make(map[string]time.Time),
-		opts:       Options{Live: liveMode},
+		cache:     profiles,
+		scanErrs:  errs,
+		scanned:   scanned,
+		refreshed: make(map[string]time.Time),
+		opts:      Options{Live: liveMode},
 	}
 }
 
@@ -171,5 +173,26 @@ func TestHandleAPIclusters_HealthSummary(t *testing.T) {
 	}
 	if h["failed"] != 1 {
 		t.Errorf("failed: got %d, want 1", h["failed"])
+	}
+}
+
+func TestMetricsEndpoint(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	w := httptest.NewRecorder()
+	promhttp.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, metric := range []string{
+		"clusterscope_clusters_total",
+		"clusterscope_scan_duration_seconds",
+		"clusterscope_live_enrichment_duration_seconds",
+		"clusterscope_scan_errors_total",
+	} {
+		if !strings.Contains(body, metric) {
+			t.Errorf("expected metric %q in /metrics output", metric)
+		}
 	}
 }

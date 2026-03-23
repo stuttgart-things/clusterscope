@@ -20,6 +20,7 @@ import (
 	"github.com/stuttgart-things/clusterscope/internal/diff"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 	"github.com/stuttgart-things/clusterscope/internal/live"
+	"github.com/stuttgart-things/clusterscope/internal/preview"
 	"github.com/stuttgart-things/clusterscope/internal/render"
 	"github.com/stuttgart-things/clusterscope/internal/scan"
 	"github.com/stuttgart-things/clusterscope/pkg/argocd"
@@ -68,6 +69,9 @@ type Server struct {
 	// preview holds parsed cluster profiles from the PR head directory.
 	previewMu    sync.RWMutex
 	previewCache map[string]*graph.ClusterProfile
+
+	// cloner handles on-demand git clone for PR preview via query params.
+	cloner *preview.Cloner
 }
 
 // Start starts the HTTP server on addr, scanning root for cluster directories.
@@ -88,6 +92,7 @@ func Start(addr, root string, opts Options) error {
 		refreshed:    make(map[string]time.Time),
 		scanErrs:     make(map[string]string),
 		previewCache: make(map[string]*graph.ClusterProfile),
+		cloner:       preview.NewCloner(preview.DefaultTTL),
 	}
 
 	s.scanAll()
@@ -513,6 +518,46 @@ func (s *Server) sanitizeClusterName(path, prefix string) (string, bool) {
 	return name, true
 }
 
+// resolvePreview resolves the base and head profiles for a preview request.
+// It supports two modes:
+//   - Sidecar mode (no query params): uses previewCache from -preview-root
+//   - On-demand mode (?repo=<url>&ref=<ref> or ?repo=<url>&pr=<N>): clones the
+//     repo at the given ref, parses it, and returns the matching cluster profile
+func (s *Server) resolvePreview(name string, r *http.Request) (base, head *graph.ClusterProfile, err error) {
+	// Base profile always comes from the main cache.
+	s.mu.RLock()
+	base = s.cache[name]
+	s.mu.RUnlock()
+
+	repo := r.URL.Query().Get("repo")
+	ref := r.URL.Query().Get("ref")
+	pr := r.URL.Query().Get("pr")
+
+	// On-demand mode: clone the repo at the requested ref.
+	if repo != "" && (ref != "" || pr != "") {
+		if pr != "" && ref == "" {
+			ref = "refs/pull/" + pr + "/head"
+		}
+		profiles, cloneErr := s.cloner.FetchProfiles(repo, ref)
+		if cloneErr != nil {
+			return base, nil, cloneErr
+		}
+		// Try exact cluster name match, then fall back to "default" (single-cluster repo).
+		head = profiles[name]
+		if head == nil {
+			head = profiles["default"]
+		}
+		return base, head, nil
+	}
+
+	// Sidecar mode: use the previewCache from -preview-root.
+	s.previewMu.RLock()
+	head = s.previewCache[name]
+	s.previewMu.RUnlock()
+
+	return base, head, nil
+}
+
 func (s *Server) handleAPIpreview(w http.ResponseWriter, r *http.Request) {
 	name, ok := s.sanitizeClusterName(r.URL.Path, "/api/preview/")
 	if !ok {
@@ -520,24 +565,21 @@ func (s *Server) handleAPIpreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.mu.RLock()
-	baseProfile, baseOK := s.cache[name]
-	s.mu.RUnlock()
-
-	s.previewMu.RLock()
-	headProfile, headOK := s.previewCache[name]
-	s.previewMu.RUnlock()
-
-	if !baseOK && !headOK {
+	baseProfile, headProfile, err := s.resolvePreview(name, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if baseProfile == nil && headProfile == nil {
 		http.NotFound(w, r)
 		return
 	}
 
 	var baseGraph, headGraph graph.Graph
-	if baseOK {
+	if baseProfile != nil {
 		baseGraph = baseProfile.Graph
 	}
-	if headOK {
+	if headProfile != nil {
 		headGraph = headProfile.Graph
 	}
 
@@ -555,24 +597,21 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.mu.RLock()
-	baseProfile, baseOK := s.cache[name]
-	s.mu.RUnlock()
-
-	s.previewMu.RLock()
-	headProfile, headOK := s.previewCache[name]
-	s.previewMu.RUnlock()
-
-	if !baseOK && !headOK {
+	baseProfile, headProfile, err := s.resolvePreview(name, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if baseProfile == nil && headProfile == nil {
 		http.NotFound(w, r)
 		return
 	}
 
 	var baseGraph, headGraph graph.Graph
-	if baseOK {
+	if baseProfile != nil {
 		baseGraph = baseProfile.Graph
 	}
-	if headOK {
+	if headProfile != nil {
 		headGraph = headProfile.Graph
 	}
 

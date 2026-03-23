@@ -10,6 +10,7 @@ import (
 
 	_ "embed"
 
+	"github.com/stuttgart-things/clusterscope/internal/diff"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 )
 
@@ -21,6 +22,9 @@ var shellTemplate string
 
 //go:embed index.html
 var indexTemplate string
+
+//go:embed diff-template.html
+var diffTemplate string
 
 // IndexCluster is one row in the multi-cluster index page.
 type IndexCluster struct {
@@ -306,4 +310,53 @@ func WriteIndex(w io.Writer, clusters []IndexCluster) error {
 		return err
 	}
 	return tmpl.Execute(w, data)
+}
+
+// ── Diff rendering ───────────────────────────────────────────────────────────
+
+type diffTemplateData struct {
+	ClusterName string
+	Technology  string
+	Summary     diff.DiffSummary
+	DiffDataJSON template.JS
+	Changes     []diff.NodeDiff // only added/removed/modified
+	ChangeCount int
+}
+
+// WriteDiffHTML renders a diff visualization as a standalone HTML page to w.
+func WriteDiffHTML(w io.Writer, gd diff.GraphDiff, base, head *graph.ClusterProfile) error {
+	jsonBytes, err := json.Marshal(gd)
+	if err != nil {
+		return err
+	}
+
+	var tech string
+	if head != nil {
+		tech = head.Technology
+	} else if base != nil {
+		tech = base.Technology
+	}
+
+	// Collect only changed nodes for the changes panel.
+	var changes []diff.NodeDiff
+	for _, nd := range gd.Nodes {
+		if nd.Kind != diff.Same {
+			changes = append(changes, nd)
+		}
+	}
+
+	td := diffTemplateData{
+		ClusterName:  gd.ClusterName,
+		Technology:   tech,
+		Summary:      gd.Summary,
+		DiffDataJSON: template.JS(jsonBytes),
+		Changes:      changes,
+		ChangeCount:  len(changes),
+	}
+
+	tmpl, err := template.New("diff").Parse(diffTemplate)
+	if err != nil {
+		return err
+	}
+	return tmpl.Execute(w, td)
 }

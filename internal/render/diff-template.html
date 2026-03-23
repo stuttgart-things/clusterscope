@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>{{.ClusterName}} diff · clusterscope</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+  .poster{max-width:1600px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+
+  /* HEADER */
+  .header{display:grid;grid-template-columns:1fr auto;align-items:center;padding:20px 28px;
+    background:linear-gradient(135deg,#161b22 0%,#1c2431 100%);border:1px solid #30363d;
+    border-radius:12px;border-left:4px solid #d2a8ff}
+  .header-left h1{font-size:28px;font-weight:700;color:#e6edf3;letter-spacing:-.5px}
+  .header-brand{font-size:13px;font-weight:700;color:#d2a8ff;letter-spacing:.04em;
+    display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+  .subtitle{margin-top:6px;font-size:13px;color:#8b949e;display:flex;gap:20px;flex-wrap:wrap}
+  .subtitle span{display:flex;align-items:center;gap:5px}
+  .header-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+
+  /* SUMMARY BADGES */
+  .summary-bar{display:flex;gap:12px;flex-wrap:wrap;padding:14px 20px;
+    background:#161b22;border:1px solid #30363d;border-radius:12px}
+  .summary-badge{display:flex;align-items:center;gap:7px;padding:6px 14px;
+    border-radius:20px;font-size:13px;font-weight:600;border:1px solid}
+  .summary-badge.added{background:#0d2b1a;border-color:#3fb95066;color:#3fb950}
+  .summary-badge.removed{background:#2d1117;border-color:#f8514966;color:#f85149}
+  .summary-badge.modified{background:#2b1d0e;border-color:#f0883e66;color:#f0883e}
+  .summary-badge.same{background:#21262d;border-color:#30363d;color:#8b949e}
+
+  /* VIEW TOGGLE */
+  .view-toggle{display:flex;gap:0;background:#21262d;border:1px solid #30363d;
+    border-radius:8px;overflow:hidden;margin-left:auto}
+  .view-btn{padding:8px 18px;font-size:12px;font-weight:600;color:#8b949e;cursor:pointer;
+    border:none;background:transparent;transition:all .2s}
+  .view-btn.active{background:#58a6ff;color:#0d1117}
+  .view-btn:hover:not(.active){color:#e6edf3}
+
+  /* GRAPH */
+  .graph-section{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px}
+  .section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;
+    color:#8b949e;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .section-title::after{content:'';flex:1;height:1px;background:#30363d}
+  svg#graph{width:100%;display:block}
+  .legend{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px}
+  .legend-item{display:flex;align-items:center;gap:7px;font-size:12px;color:#8b949e}
+  .legend-swatch{width:16px;height:4px;border-radius:2px}
+
+  /* DIFF-SPECIFIC NODE STYLES */
+  .node-added rect{stroke:#3fb950;stroke-width:2;filter:drop-shadow(0 0 6px #3fb95066)}
+  .node-removed rect{stroke:#f85149;stroke-width:2;stroke-dasharray:6,3;opacity:.6}
+  .node-modified rect{stroke:#f0883e;stroke-width:2;filter:drop-shadow(0 0 6px #f0883e66)}
+  .node-same rect{stroke:#30363d;stroke-width:1;opacity:.5}
+  .node-removed text{text-decoration:line-through;opacity:.5}
+
+  .edge-added{stroke:#3fb950!important;stroke-dasharray:8,4}
+  .edge-removed{stroke:#f85149!important;stroke-dasharray:4,4;opacity:.5}
+  .edge-same{stroke:#30363d!important;opacity:.3}
+
+  /* CHANGES PANEL */
+  .changes-panel{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px}
+  .change-item{padding:12px 16px;border:1px solid #30363d;border-radius:8px;margin-bottom:8px;
+    background:#0d1117}
+  .change-item.added{border-left:3px solid #3fb950}
+  .change-item.removed{border-left:3px solid #f85149}
+  .change-item.modified{border-left:3px solid #f0883e}
+  .change-name{font-size:14px;font-weight:600;color:#e6edf3}
+  .change-kind{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+    padding:2px 8px;border-radius:4px;margin-left:8px}
+  .change-kind.added{background:#0d2b1a;color:#3fb950}
+  .change-kind.removed{background:#2d1117;color:#f85149}
+  .change-kind.modified{background:#2b1d0e;color:#f0883e}
+  .change-fields{margin-top:8px;font-size:12px;color:#8b949e}
+  .change-field{display:flex;gap:8px;padding:2px 0}
+  .change-field-name{color:#d2a8ff;min-width:80px;font-weight:600}
+  .change-old{color:#f85149;text-decoration:line-through}
+  .change-new{color:#3fb950}
+
+  /* DETAIL PANEL (reuse from main template) */
+  .detail-panel{position:fixed;top:0;right:-420px;width:400px;height:100vh;
+    background:#161b22;border-left:1px solid #30363d;padding:20px;overflow-y:auto;
+    transition:right .3s;z-index:1000;box-shadow:-4px 0 20px #00000066}
+  .detail-panel.open{right:0}
+  .detail-close{position:absolute;top:12px;right:12px;background:none;border:none;
+    color:#8b949e;font-size:20px;cursor:pointer}
+  .detail-close:hover{color:#e6edf3}
+  .detail-title{font-size:18px;font-weight:700;margin-bottom:16px;padding-right:30px}
+  .detail-row{display:flex;justify-content:space-between;padding:8px 0;
+    border-bottom:1px solid #21262d;font-size:13px}
+  .detail-label{color:#8b949e}
+  .detail-value{color:#e6edf3;text-align:right;max-width:240px;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="poster">
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-brand">CLUSTERSCOPE <span class="header-brand-sub">PR PREVIEW</span></div>
+      <h1>{{.ClusterName}}</h1>
+      <div class="subtitle">
+        <span>base vs head diff</span>
+        {{if .Technology}}<span>{{.Technology}}</span>{{end}}
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="view-toggle">
+        <button class="view-btn active" onclick="setView('diff')">Diff</button>
+        <button class="view-btn" onclick="setView('before')">Before</button>
+        <button class="view-btn" onclick="setView('after')">After</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="summary-bar">
+    {{if .Summary.Added}}<div class="summary-badge added">+ {{.Summary.Added}} added</div>{{end}}
+    {{if .Summary.Removed}}<div class="summary-badge removed">- {{.Summary.Removed}} removed</div>{{end}}
+    {{if .Summary.Modified}}<div class="summary-badge modified">~ {{.Summary.Modified}} modified</div>{{end}}
+    <div class="summary-badge same">{{.Summary.Same}} unchanged</div>
+  </div>
+
+  <!-- GRAPH -->
+  <div class="graph-section">
+    <div class="section-title">Dependency Graph</div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#3fb950"></div> Added</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f85149"></div> Removed</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f0883e"></div> Modified</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#30363d"></div> Unchanged</div>
+    </div>
+    <svg id="graph" height="500"></svg>
+  </div>
+
+  <!-- CHANGES LIST -->
+  <div class="changes-panel">
+    <div class="section-title">Changes ({{.ChangeCount}})</div>
+    {{range .Changes}}
+    <div class="change-item {{.Kind}}">
+      <span class="change-name">{{.Node.ID}}</span>
+      <span class="change-kind {{.Kind}}">{{.Kind}}</span>
+      {{if .Changes}}
+      <div class="change-fields">
+        {{range .Changes}}
+        <div class="change-field">
+          <span class="change-field-name">{{.Field}}</span>
+          {{if .Old}}<span class="change-old">{{.Old}}</span>{{end}}
+          <span class="change-new">{{.New}}</span>
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+    {{if not .Changes}}
+    <div style="color:#8b949e;font-size:13px;padding:12px">No changes detected.</div>
+    {{end}}
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-panel" id="detailPanel">
+  <button class="detail-close" onclick="closeDetail()">&times;</button>
+  <div id="detailContent"></div>
+</div>
+
+<script>
+const diffData = {{.DiffDataJSON}};
+
+// Current view mode
+let currentView = 'diff';
+
+function setView(mode) {
+  currentView = mode;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.view-btn[onclick="setView('${mode}')"]`).classList.add('active');
+  renderGraph();
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('open');
+}
+
+function showDetail(nd) {
+  const panel = document.getElementById('detailPanel');
+  const content = document.getElementById('detailContent');
+  let html = `<div class="detail-title">${nd.node.id}</div>`;
+  html += `<div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="change-kind ${nd.kind}">${nd.kind}</span></span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">Type</span><span class="detail-value">${nd.node.type || '-'}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">Path</span><span class="detail-value">${nd.node.path || '-'}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">Version</span><span class="detail-value">${nd.node.version || '-'}</span></div>`;
+  html += `<div class="detail-row"><span class="detail-label">Source</span><span class="detail-value">${nd.node.source || '-'}</span></div>`;
+  if (nd.changes && nd.changes.length > 0) {
+    html += `<div style="margin-top:16px;font-size:12px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:1px">Field Changes</div>`;
+    nd.changes.forEach(c => {
+      html += `<div class="detail-row"><span class="detail-label">${c.field}</span><span class="detail-value"><span class="change-old">${c.old || ''}</span> <span class="change-new">${c.new || ''}</span></span></div>`;
+    });
+  }
+  content.innerHTML = html;
+  panel.classList.add('open');
+}
+
+function renderGraph() {
+  const svg = d3.select('#graph');
+  svg.selectAll('*').remove();
+  const width = svg.node().parentElement.clientWidth - 32;
+  const height = 500;
+  svg.attr('viewBox', `0 0 ${width} ${height}`);
+
+  // Filter nodes based on view
+  let nodes = diffData.nodes.filter(nd => {
+    if (currentView === 'before') return nd.kind !== 'added';
+    if (currentView === 'after') return nd.kind !== 'removed';
+    return true;
+  });
+
+  let edges = diffData.edges.filter(ed => {
+    if (currentView === 'before') return ed.kind !== 'added';
+    if (currentView === 'after') return ed.kind !== 'removed';
+    return true;
+  });
+
+  const nodeIds = new Set(nodes.map(n => n.node.id));
+
+  // Build simulation nodes/links
+  const simNodes = nodes.map(nd => ({
+    id: nd.node.id,
+    kind: nd.kind,
+    data: nd,
+    layer: nd.node.layer || 0
+  }));
+  const simLinks = edges
+    .filter(ed => nodeIds.has(ed.edge.s) && nodeIds.has(ed.edge.t))
+    .map(ed => ({
+      source: ed.edge.s,
+      target: ed.edge.t,
+      edgeKind: ed.edge.kind,
+      diffKind: ed.kind
+    }));
+
+  const g = svg.append('g');
+
+  // Zoom
+  svg.call(d3.zoom().scaleExtent([0.3, 3]).on('zoom', e => g.attr('transform', e.transform)));
+
+  // Arrow markers
+  const defs = svg.append('defs');
+  ['added','removed','modified','same'].forEach(kind => {
+    const color = kind === 'added' ? '#3fb950' : kind === 'removed' ? '#f85149' : kind === 'modified' ? '#f0883e' : '#30363d';
+    defs.append('marker').attr('id', `arrow-${kind}`).attr('viewBox','0 -5 10 10')
+      .attr('refX',25).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6)
+      .attr('orient','auto').append('path').attr('d','M0,-5L10,0L0,5')
+      .attr('fill', color);
+  });
+
+  // Force layout
+  const simulation = d3.forceSimulation(simNodes)
+    .force('link', d3.forceLink(simLinks).id(d => d.id).distance(120))
+    .force('charge', d3.forceManyBody().strength(-400))
+    .force('x', d3.forceX(d => 100 + d.layer * (width - 200) / 4).strength(0.3))
+    .force('y', d3.forceY(height / 2).strength(0.1))
+    .force('collision', d3.forceCollide(50));
+
+  // Edges
+  const link = g.selectAll('.link')
+    .data(simLinks).join('line')
+    .attr('class', d => `link edge-${d.diffKind}`)
+    .attr('stroke-width', 1.5)
+    .attr('marker-end', d => `url(#arrow-${d.diffKind})`);
+
+  // Nodes
+  const node = g.selectAll('.node')
+    .data(simNodes).join('g')
+    .attr('class', d => `node node-${d.kind}`)
+    .style('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+    )
+    .on('click', (e, d) => showDetail(d.data));
+
+  node.append('rect')
+    .attr('width', 140).attr('height', 36).attr('rx', 6)
+    .attr('x', -70).attr('y', -18)
+    .attr('fill', '#0d1117');
+
+  node.append('text')
+    .attr('text-anchor', 'middle').attr('dy', '0.35em')
+    .attr('fill', d => d.kind === 'added' ? '#3fb950' : d.kind === 'removed' ? '#f85149' : d.kind === 'modified' ? '#f0883e' : '#8b949e')
+    .attr('font-size', '11px').attr('font-weight', 600)
+    .text(d => d.id.length > 18 ? d.id.slice(0, 16) + '..' : d.id);
+
+  simulation.on('tick', () => {
+    link
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+}
+
+renderGraph();
+</script>
+</body>
+</html>

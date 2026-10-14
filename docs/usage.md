@@ -20,6 +20,8 @@ clusterscope [flags]
 | `-kubeconfig-dir` | — | Directory with one kubeconfig per cluster (see [Live Mode](live.md#multi-cluster-live-mode)) |
 | `-kubeconfig-map` | — | YAML mapping cluster name → kubeconfig path |
 | `-self-cluster` | — | Cluster clusterscope runs in (uses `-kubeconfig` / in-cluster) |
+| `-probe` | `false` | Probe every HTTPRoute URL on each live refresh (see [Endpoint Inventory](endpoints.md)) |
+| `-probe-timeout` | `5s` | Per-URL probe timeout |
 | `-refresh` | `30` | Live status refresh interval in seconds |
 | `-repos-config` | — | Path to repos.yaml (git-sync Kubernetes mode) |
 | `-diff` | `false` | Compare two cluster directories and output a diff |

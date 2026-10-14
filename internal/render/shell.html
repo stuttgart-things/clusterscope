@@ -307,6 +307,25 @@
 
 <div class="layout">
   <nav class="sidebar" aria-label="Cluster navigation">
+    <!-- INVENTORY -->
+    <div class="sidebar-section">
+      <div class="sidebar-heading">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Inventory
+      </div>
+    </div>
+    <ul>
+      <li>
+        <a href="#" onclick="loadEndpoints();return false;" id="link-endpoints" aria-label="Open endpoints inventory">
+          <span class="health-dot unknown" id="endpoints-dot"></span>
+          <div class="cluster-info">
+            <span class="cluster-name">Endpoints</span>
+            <span class="cluster-meta" id="endpoints-meta">HTTPRoutes &amp; Gateways, all clusters</span>
+          </div>
+        </a>
+      </li>
+    </ul>
+    <div class="sidebar-divider"></div>
     <!-- CLUSTERS -->
     <div class="sidebar-section">
       <div class="sidebar-heading">
@@ -390,6 +409,7 @@ let recentPreviews = JSON.parse(localStorage.getItem('cs-recent-previews') || '[
 /* ═══════════ CLUSTER LIST ═══════════ */
 document.addEventListener("DOMContentLoaded", function () {
   loadClusters();
+  loadEndpointSummary();
   renderRecent();
 });
 
@@ -465,6 +485,31 @@ function loadCluster(name) {
   if (link) link.classList.add("active");
   const main = document.getElementById("main");
   main.innerHTML = '<iframe id="cluster-frame" src="/clusters/' + encodeURIComponent(name) + '" title="Cluster visualization for ' + escHtml(name) + '"></iframe>';
+}
+
+function loadEndpointSummary() {
+  fetch("/api/endpoints")
+    .then(r => r.json())
+    .then(d => {
+      if (!d.clusters.length) return; // live mode off
+      const bad = d.routes.filter(r => r.accepted !== "True" || r.resolvedRefs !== "True" ||
+        (r.probes || []).some(p => !p.ok)).length;
+      document.getElementById("endpoints-dot").className = "health-dot " + (bad ? "degraded" : d.routes.length ? "healthy" : "unknown");
+      document.getElementById("endpoints-meta").textContent =
+        d.routes.length + " routes" + (bad ? " · " + bad + " with problems" : "");
+    })
+    .catch(() => {});
+}
+
+function loadEndpoints() {
+  history.pushState({endpoints: true}, "", "/#endpoints");
+  showEndpoints();
+}
+
+function showEndpoints() {
+  document.querySelectorAll("nav.sidebar a").forEach(a => a.classList.remove("active"));
+  document.getElementById("link-endpoints").classList.add("active");
+  document.getElementById("main").innerHTML = '<iframe id="cluster-frame" src="/endpoints" title="Endpoints inventory"></iframe>';
 }
 
 /* ═══════════ PR PREVIEW ═══════════ */
@@ -571,6 +616,8 @@ function escHtml(s) {
 window.addEventListener("popstate", function(e) {
   if (e.state && e.state.cluster) {
     loadCluster(e.state.cluster);
+  } else if (e.state && e.state.endpoints) {
+    showEndpoints();
   }
 });
 
@@ -579,6 +626,8 @@ window.addEventListener("popstate", function(e) {
   const m = window.location.pathname.match(/^\/clusters\/([^/]+)$/);
   if (m) {
     setTimeout(() => loadCluster(decodeURIComponent(m[1])), 300);
+  } else if (window.location.hash === "#endpoints") {
+    showEndpoints();
   }
 })();
 

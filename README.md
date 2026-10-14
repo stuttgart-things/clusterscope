@@ -13,7 +13,8 @@ Point it at a Flux or ArgoCD cluster folder and get a standalone HTML file you c
 - Cards view alongside the graph for quick scanning
 - SOPS-encrypted substitution values are automatically stripped from the output
 - **PR preview** — visual diff of what a pull request changes in the cluster graph
-- **Live mode** — real-time reconciliation status from a running cluster
+- **Live mode** — real-time reconciliation status from a running cluster, per-cluster kubeconfigs and reachability
+- **Endpoint inventory** — HTTPRoutes and Gateways of all clusters with Accepted/ResolvedRefs status, optional reachability probe, and Prometheus `http_sd` targets for blackbox-exporter
 - HTTP dashboard with HTMX-driven multi-cluster view
 - PDF export via headless Chromium
 - Prometheus metrics endpoint
@@ -76,6 +77,8 @@ See [PR Preview](docs/preview.md) for full documentation.
 | `-kubeconfig-dir` | — | Directory with one kubeconfig per cluster (multi-cluster live mode) |
 | `-kubeconfig-map` | — | YAML mapping cluster name → kubeconfig path |
 | `-self-cluster` | — | Cluster clusterscope runs in (uses `-kubeconfig` / in-cluster) |
+| `-probe` | `false` | Probe every HTTPRoute URL on each live refresh |
+| `-probe-timeout` | `5s` | Per-URL probe timeout |
 | `-refresh` | `30` | Live status refresh interval in seconds |
 | `-diff` | `false` | Compare two cluster directories and output a diff |
 | `-base-dir` | — | Base cluster directory (used with `-diff`) |
@@ -89,6 +92,7 @@ See [PR Preview](docs/preview.md) for full documentation.
 - [Serve Mode](docs/serve.md)
 - [PR Preview](docs/preview.md)
 - [Live Mode](docs/live.md)
+- [Endpoint Inventory](docs/endpoints.md)
 - [PDF Export](docs/pdf.md)
 - [KCL Deployment](docs/kcl.md)
 - [Architecture](docs/architecture.md)

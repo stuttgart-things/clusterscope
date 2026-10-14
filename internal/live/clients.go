@@ -30,6 +30,9 @@ type ClusterStatus struct {
 	Error        string
 	Source       string // kubeconfig path, or "default" for -kubeconfig / in-cluster
 	CheckedAt    time.Time
+	// Endpoints is the Gateway API inventory; nil unless the cluster is
+	// reachable.
+	Endpoints *Endpoints
 }
 
 // ClientConfig controls how a kubeconfig is resolved for each cluster.
@@ -196,6 +199,8 @@ func (c *Clients) Enrich(profile *graph.ClusterProfile, cluster string) ClusterS
 	default:
 		enrichFlux(profile, kc.dynamic)
 	}
+	ep := fetchEndpoints(kc.dynamic, profile.Technology)
+	st.Endpoints = &ep
 	return st
 }
 

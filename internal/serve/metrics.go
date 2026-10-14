@@ -38,6 +38,11 @@ var (
 		Help: "1 if the cluster's API server answered during the last live refresh, 0 if not. Absent when no kubeconfig is configured for the cluster.",
 	}, []string{"cluster"})
 
+	httprouteAccepted = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "clusterscope_httproute_accepted",
+		Help: "1 if all parent Gateways accepted the HTTPRoute, 0 if not (False or Unknown). Only for reachable clusters.",
+	}, []string{"cluster", "namespace", "route"})
+
 	scanErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "clusterscope_scan_errors_total",
 		Help: "Total number of cluster scan errors.",

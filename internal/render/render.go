@@ -26,6 +26,9 @@ var indexTemplate string
 //go:embed diff-template.html
 var diffTemplate string
 
+//go:embed endpoints.html
+var endpointsPage string
+
 // IndexCluster is one row in the multi-cluster index page.
 type IndexCluster struct {
 	Name    string
@@ -281,6 +284,13 @@ func WriteShell(w io.Writer) error {
 		BuildCommit: buildCommit,
 		BuildDate:   buildDate,
 	})
+}
+
+// WriteEndpoints writes the endpoints dashboard page. It is static and loads
+// its data from /api/endpoints.
+func WriteEndpoints(w io.Writer) error {
+	_, err := io.WriteString(w, endpointsPage)
+	return err
 }
 
 // WriteIndex renders a multi-cluster index page from a list of cluster entries.

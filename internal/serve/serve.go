@@ -21,6 +21,7 @@ import (
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 	"github.com/stuttgart-things/clusterscope/internal/live"
 	"github.com/stuttgart-things/clusterscope/internal/preview"
+	"github.com/stuttgart-things/clusterscope/internal/probe"
 	"github.com/stuttgart-things/clusterscope/internal/render"
 	"github.com/stuttgart-things/clusterscope/internal/scan"
 	"github.com/stuttgart-things/clusterscope/pkg/argocd"
@@ -44,6 +45,11 @@ type Options struct {
 	// SelfCluster names the cluster clusterscope runs in. In per-cluster
 	// mode only this cluster falls back to the default kubeconfig.
 	SelfCluster string
+	// Probe enables a one-shot HTTP(S) check of every HTTPRoute URL on each
+	// live refresh (requires Live).
+	Probe bool
+	// ProbeTimeout is the per-URL probe timeout. Defaults to 5s.
+	ProbeTimeout time.Duration
 	// RefreshSeconds is how often (in seconds) live status is re-fetched.
 	// Defaults to 30 when Live is true.
 	RefreshSeconds int
@@ -84,6 +90,13 @@ type Server struct {
 	clients    *live.Clients
 	liveStatus map[string]live.ClusterStatus
 
+	// endpoints holds the last Gateway API inventory per cluster; it is kept
+	// (marked stale) while a cluster is unreachable. probes holds the last
+	// probe result per cluster and URL.
+	endpoints map[string]endpointState
+	prober    *probe.Prober
+	probes    map[string]map[string]probe.Result
+
 	// preview holds parsed cluster profiles from the PR head directory.
 	previewMu    sync.RWMutex
 	previewCache map[string]*graph.ClusterProfile
@@ -110,6 +123,8 @@ func Start(addr, root string, opts Options) error {
 		refreshed:    make(map[string]time.Time),
 		scanErrs:     make(map[string]string),
 		liveStatus:   make(map[string]live.ClusterStatus),
+		endpoints:    make(map[string]endpointState),
+		probes:       make(map[string]map[string]probe.Result),
 		previewCache: make(map[string]*graph.ClusterProfile),
 		cloner:       preview.NewCloner(preview.DefaultTTL),
 	}
@@ -121,6 +136,13 @@ func Start(addr, root string, opts Options) error {
 			Kubeconfig:    opts.Kubeconfig,
 			Self:          opts.SelfCluster,
 		})
+		if opts.Probe {
+			if opts.ProbeTimeout <= 0 {
+				opts.ProbeTimeout = 5 * time.Second
+				s.opts.ProbeTimeout = opts.ProbeTimeout
+			}
+			s.prober = probe.New(opts.ProbeTimeout)
+		}
 	}
 
 	s.scanAll()
@@ -146,6 +168,9 @@ func Start(addr, root string, opts Options) error {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/api/clusters", s.handleAPIclusters)
+	mux.HandleFunc("/api/endpoints", s.handleAPIendpoints)
+	mux.HandleFunc("/api/targets", s.handleAPItargets)
+	mux.HandleFunc("/endpoints", s.handleEndpoints)
 	mux.HandleFunc("/clusters/", s.handleCluster)
 	mux.HandleFunc("/pdf/", s.handlePDF)
 	mux.HandleFunc("/api/preview/", s.handleAPIpreview)
@@ -206,6 +231,7 @@ func (s *Server) enrichCluster(name string, p *graph.ClusterProfile) {
 	default:
 		clusterReachable.DeleteLabelValues(name)
 	}
+	s.updateEndpoints(name, st)
 	log.Printf("live enriched %s  reachability=%s", name, st.Reachability)
 }
 

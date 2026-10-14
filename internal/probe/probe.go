@@ -29,13 +29,13 @@ type Result struct {
 	URL string `json:"url"`
 	// OK means the endpoint answered with a status below 500 — routing,
 	// certificate and backend work. 401/403/404 count as OK: the app answered.
-	OK         bool      `json:"ok"`
-	Stage      string    `json:"stage,omitempty"` // failing stage when !OK
-	Error      string    `json:"error,omitempty"`
-	StatusCode int       `json:"statusCode,omitempty"`
-	LatencyMs  int64     `json:"latencyMs"`
+	OK         bool       `json:"ok"`
+	Stage      string     `json:"stage,omitempty"` // failing stage when !OK
+	Error      string     `json:"error,omitempty"`
+	StatusCode int        `json:"statusCode,omitempty"`
+	LatencyMs  int64      `json:"latencyMs"`
 	CertExpiry *time.Time `json:"certExpiry,omitempty"` // leaf certificate NotAfter (HTTPS only)
-	CheckedAt  time.Time `json:"checkedAt"`
+	CheckedAt  time.Time  `json:"checkedAt"`
 }
 
 // Prober probes URLs with a shared HTTP client.

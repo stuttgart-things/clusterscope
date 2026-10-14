@@ -39,6 +39,12 @@ clusterRole = {
             resources: ["gitrepositories", "ocirepositories", "helmrepositories", "helmcharts"]
             verbs: ["get", "list", "watch"]
         }
+        # Flux CRDs (helm.toolkit.fluxcd.io) — workload health per HelmRelease
+        {
+            apiGroups: ["helm.toolkit.fluxcd.io"]
+            resources: ["helmreleases"]
+            verbs: ["get", "list", "watch"]
+        }
         # Flux instance (fluxcd.controlplane.io)
         {
             apiGroups: ["fluxcd.controlplane.io"]

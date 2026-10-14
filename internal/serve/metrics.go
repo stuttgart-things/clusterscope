@@ -3,6 +3,7 @@ package serve
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/stuttgart-things/clusterscope/internal/graph"
 )
 
 var (
@@ -43,8 +44,43 @@ var (
 		Help: "1 if all parent Gateways accepted the HTTPRoute, 0 if not (False or Unknown). Only for reachable clusters.",
 	}, []string{"cluster", "namespace", "route"})
 
+	appWorkloadStatus = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "clusterscope_app_workload_status",
+		Help: "1 for the current actual workload health of a node (healthy, degraded, down, n/a), 0 for the others. Only for reachable clusters.",
+	}, []string{"cluster", "app", "status"})
+
+	appGitOpsDrift = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "clusterscope_app_gitops_drift",
+		Help: "1 if the GitOps controller reports the node ready while its workloads or HelmReleases are not, else 0.",
+	}, []string{"cluster", "app"})
+
 	scanErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "clusterscope_scan_errors_total",
 		Help: "Total number of cluster scan errors.",
 	})
 )
+
+var workloadStatuses = []string{graph.WorkloadHealthy, graph.WorkloadDegraded, graph.WorkloadDown, graph.WorkloadNA}
+
+// updateWorkloadMetrics replaces the workload series of one cluster.
+func updateWorkloadMetrics(cluster string, p *graph.ClusterProfile) {
+	appWorkloadStatus.DeletePartialMatch(prometheus.Labels{"cluster": cluster})
+	appGitOpsDrift.DeletePartialMatch(prometheus.Labels{"cluster": cluster})
+	for _, n := range p.Graph.Nodes {
+		if n.Workloads == nil {
+			continue
+		}
+		for _, st := range workloadStatuses {
+			v := 0.0
+			if n.Workloads.Status == st {
+				v = 1
+			}
+			appWorkloadStatus.WithLabelValues(cluster, n.ID, st).Set(v)
+		}
+		drift := 0.0
+		if n.Workloads.Drift {
+			drift = 1
+		}
+		appGitOpsDrift.WithLabelValues(cluster, n.ID).Set(drift)
+	}
+}

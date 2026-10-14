@@ -81,6 +81,61 @@ Reachability is exposed in:
 | `progressing` | 🟠 Orange | Reconciliation in progress |
 | `unknown` | Grey | Cluster unreachable / unconfigured, or no status available |
 
+## Workload health
+
+The GitOps status only reflects the **last reconcile**: Flux evaluates health checks during a reconcile, so with `interval: 1h` a `Ready=True` can be an hour old while the pods behind it crash-loop. clusterscope therefore evaluates the actual workloads of every node at each refresh.
+
+**Which workloads belong to a node**
+
+| Node | Objects |
+|---|---|
+| Flux Kustomization | `.status.inventory` — Deployments, StatefulSets and DaemonSets listed directly, plus all workloads labelled `helm.toolkit.fluxcd.io/name` / `-namespace` for every HelmRelease in the inventory |
+| `sync-root` (flux-operator) | the `FluxInstance` inventory (the Flux controllers) |
+| Argo CD Application | `.status.resources` |
+
+Nested Kustomizations are not followed: a Kustomization that only creates other Kustomizations reports `n/a`, its children report their own workloads.
+
+**Per workload**: available / desired replicas (Deployment `availableReplicas`, StatefulSet `availableReplicas`/`readyReplicas`, DaemonSet `numberAvailable` vs. `desiredNumberScheduled`) and the pods matched by its selector:
+
+- containers waiting in `CrashLoopBackOff`, `ImagePullBackOff`, `ErrImagePull`, `CreateContainerConfigError`, …
+- containers that are not ready and have restarted (`restarting (last exit: Error, code 1)`) — catches a crash loop in the seconds between two back-offs
+- pods `Pending` for more than 2 minutes
+- container restarts since the previous refresh
+
+| Workload status | Meaning |
+|---|---|
+| `healthy` | all workloads have all desired replicas available, no pod issues (scaled to 0 counts as healthy) |
+| `degraded` | some replicas missing, or pod issues |
+| `down` | no workload has a single available replica |
+| `n/a` | the node manages no Deployments, StatefulSets or DaemonSets |
+
+**Drift** is set when the GitOps controller reports the node `ready` while its workloads are `degraded`/`down` or one of its HelmReleases is not ready — exactly the state Flux hides until the next reconcile.
+
+Shown in:
+
+- the dependency graph — `ready/total` badge on each node, dashed border on drift
+- the detail panel — every workload with replicas, pod issues and restarts, every HelmRelease with its Ready condition, and the age of the last `Ready` transition next to the interval
+- the dashboard sidebar — `n degraded · n down · n drift` per cluster
+- `GET /api/clusters` — `workloadSummary`, `drift`, `workloadError`; the node JSON carries `workloads`
+- `/metrics`:
+
+| Metric | Labels | Value |
+|---|---|---|
+| `clusterscope_app_workload_status` | `cluster`, `app`, `status` | `1` for the current status (`healthy`, `degraded`, `down`, `n/a`), `0` for the others |
+| `clusterscope_app_gitops_drift` | `cluster`, `app` | `1` on drift, else `0` |
+
+Alert on these in Prometheus instead of watching the UI, e.g.:
+
+```yaml
+- alert: GitOpsDrift
+  expr: clusterscope_app_gitops_drift == 1
+  for: 15m
+  annotations:
+    summary: "{{ $labels.app }} on {{ $labels.cluster }} is GitOps-ready but its workloads are not"
+```
+
+If workloads or pods cannot be listed (missing RBAC), the cluster shows `workloads unreadable` and `workloadError` — GitOps status is still reported.
+
 ## Data sources
 
 ### Flux
@@ -88,7 +143,9 @@ Reachability is exposed in:
 | Resource | API Group |
 |---|---|
 | Kustomizations | `kustomize.toolkit.fluxcd.io` |
-| GitRepositories | `source.toolkit.fluxcd.io` |
+| GitRepositories, OCIRepositories | `source.toolkit.fluxcd.io` |
+| HelmReleases | `helm.toolkit.fluxcd.io` |
+| FluxInstances (status of the `sync-root` node) | `fluxcd.controlplane.io` |
 
 ### ArgoCD
 
@@ -96,10 +153,17 @@ Reachability is exposed in:
 |---|---|
 | Applications | `argoproj.io` |
 
+### Workloads
+
+| Resource | API Group |
+|---|---|
+| Deployments, StatefulSets, DaemonSets | `apps` |
+| Pods | core |
+
 ## UI changes in live mode
 
 - Node border color reflects live status (instead of type color)
-- Clicking a node shows `Status`, `Message`, and `UpdatedAt` in the detail panel
+- Clicking a node shows `Status`, `Message`, the last transition and the [workload health](#workload-health) in the detail panel
 - A `🟢 Live · <timestamp>` badge appears in the cluster profile header
 
 ## Security
@@ -108,4 +172,4 @@ Reachability is exposed in:
 - `KUBECONFIG` follows standard kubectl conventions
 - `-kubeconfig` and `-kubeconfig-dir` are validated (must exist) before the server starts
 - Live errors degrade to `status: "unknown"` — the server never crashes on live failures
-- Only read access is needed on workload clusters (`get`/`list` on the Flux / Argo CD CRDs, and `gateway.networking.k8s.io` for the [endpoint inventory](endpoints.md))
+- Only read access is needed on workload clusters (`get`/`list` on the Flux / Argo CD CRDs, `apps` workloads and pods for [workload health](#workload-health), and `gateway.networking.k8s.io` for the [endpoint inventory](endpoints.md))

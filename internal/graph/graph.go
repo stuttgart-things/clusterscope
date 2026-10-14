@@ -22,6 +22,54 @@ type Node struct {
 	Status    string `json:"status,omitempty"`    // "ready" | "failed" | "progressing" | "unknown"
 	Message   string `json:"message,omitempty"`   // last condition message
 	UpdatedAt string `json:"updatedAt,omitempty"` // ISO-8601 timestamp
+
+	// Workloads is the actual state of the workloads behind the node,
+	// evaluated at refresh time — populated only when --live is active.
+	Workloads *WorkloadHealth `json:"workloads,omitempty"`
+}
+
+// Workload health values.
+const (
+	WorkloadHealthy  = "healthy"
+	WorkloadDegraded = "degraded"
+	WorkloadDown     = "down"
+	WorkloadNA       = "n/a" // no Deployments, StatefulSets or DaemonSets
+)
+
+// WorkloadHealth aggregates the Deployments, StatefulSets and DaemonSets that
+// belong to a node (Flux inventory, HelmRelease labels or Argo CD resources).
+type WorkloadHealth struct {
+	Status string `json:"status"` // healthy | degraded | down | n/a
+	Ready  int    `json:"ready"`  // workloads with all desired replicas available
+	Total  int    `json:"total"`
+	// Drift is set when the GitOps controller reports ready but the
+	// workloads (or HelmReleases) are not — the state Flux hides until the
+	// next reconcile.
+	Drift        bool                `json:"drift,omitempty"`
+	Workloads    []Workload          `json:"items,omitempty"`
+	HelmReleases []HelmReleaseStatus `json:"helmReleases,omitempty"`
+}
+
+// Workload is one Deployment, StatefulSet or DaemonSet.
+type Workload struct {
+	Kind      string   `json:"kind"`
+	Namespace string   `json:"namespace"`
+	Name      string   `json:"name"`
+	Ready     int32    `json:"ready"`
+	Desired   int32    `json:"desired"`
+	Status    string   `json:"status"`           // healthy | degraded | down
+	Issues    []string `json:"issues,omitempty"` // "<pod>: CrashLoopBackOff"
+	// Restarts counts container restarts since the previous refresh.
+	Restarts int32 `json:"restarts,omitempty"`
+}
+
+// HelmReleaseStatus is the Ready condition of a Flux HelmRelease in a node's
+// inventory.
+type HelmReleaseStatus struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Status    string `json:"status"` // ready | failed | progressing | unknown
+	Message   string `json:"message,omitempty"`
 }
 
 // Edge represents a directed dependency or watch relationship between nodes.

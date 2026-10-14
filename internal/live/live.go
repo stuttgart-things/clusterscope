@@ -12,15 +12,13 @@
 package live
 
 import (
-	"context"
-	"encoding/json"
 	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/stuttgart-things/clusterscope/internal/graph"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -106,60 +104,82 @@ func newRESTConfig(kubeconfig string) (*rest.Config, error) {
 var (
 	gvrKustomizations   = schema.GroupVersionResource{Group: "kustomize.toolkit.fluxcd.io", Version: "v1", Resource: "kustomizations"}
 	gvrGitRepositories  = schema.GroupVersionResource{Group: "source.toolkit.fluxcd.io", Version: "v1", Resource: "gitrepositories"}
+	gvrOCIRepositories  = schema.GroupVersionResource{Group: "source.toolkit.fluxcd.io", Version: "v1", Resource: "ocirepositories"}
+	gvrFluxInstances    = schema.GroupVersionResource{Group: "fluxcd.controlplane.io", Version: "v1", Resource: "fluxinstances"}
 	gvrArgoApplications = schema.GroupVersionResource{Group: "argoproj.io", Version: "v1alpha1", Resource: "applications"}
 )
 
 // ── Flux enrichment ───────────────────────────────────────────────────────────
 
-func enrichFlux(profile *graph.ClusterProfile, client dynamic.Interface) {
+// enrichFlux applies Kustomization and source status and returns the managed
+// objects per node (Kustomization inventories; the FluxInstance inventory for
+// the "sync-root" node).
+func enrichFlux(profile *graph.ClusterProfile, client dynamic.Interface) map[string][]objRef {
 	merged := make(map[string]NodeStatus)
-	for k, v := range fetchResource(client, gvrKustomizations) {
+	ks, err := listItems(client, gvrKustomizations)
+	if err != nil {
+		log.Printf("live: %v", err)
+	}
+	for k, v := range statusesOf(ks) {
 		merged[k] = v
 	}
-	for k, v := range fetchResource(client, gvrGitRepositories) {
-		merged[k] = v
+	for _, gvr := range []schema.GroupVersionResource{gvrOCIRepositories, gvrGitRepositories} {
+		for k, v := range fetchResource(client, gvr) {
+			merged[k] = v
+		}
+	}
+	members := inventoryRefs(ks)
+
+	// flux-operator: the FluxInstance is the sync root. Without the CRD the
+	// list fails with NotFound — plain Flux, nothing to report.
+	if fi, err := listItems(client, gvrFluxInstances); err == nil && len(fi) > 0 {
+		for name, st := range statusesOf(fi[:1]) {
+			merged["sync-root"] = st
+			members["sync-root"] = inventoryRefs(fi[:1])[name]
+		}
 	}
 	applyToProfile(profile, merged)
+	return members
 }
 
 // ── ArgoCD enrichment ─────────────────────────────────────────────────────────
 
-func enrichArgoCD(profile *graph.ClusterProfile, client dynamic.Interface) {
-	statuses := fetchArgoResource(client, gvrArgoApplications)
+// enrichArgoCD applies Application health/sync and returns each
+// Application's managed resources.
+func enrichArgoCD(profile *graph.ClusterProfile, client dynamic.Interface) map[string][]objRef {
+	items, err := listItems(client, gvrArgoApplications)
+	if err != nil {
+		log.Printf("live: %v", err)
+	}
+	statuses := make(map[string]NodeStatus)
+	for _, item := range items {
+		var ai argoItem
+		if decode(item, &ai) == nil {
+			statuses[ai.Metadata.Name] = statusFromArgo(ai)
+		}
+	}
 	applyToProfile(profile, statuses)
+	return argoRefs(items)
 }
 
 // ── fetcher helpers ───────────────────────────────────────────────────────────
 
 func fetchResource(client dynamic.Interface, gvr schema.GroupVersionResource) map[string]NodeStatus {
-	list, err := client.Resource(gvr).Namespace("").List(context.Background(), metav1.ListOptions{})
+	items, err := listItems(client, gvr)
 	if err != nil {
-		log.Printf("live: list %s: %v", gvr.Resource, err)
+		log.Printf("live: %v", err)
 		return nil
 	}
-	result := make(map[string]NodeStatus)
-	for _, item := range list.Items {
-		raw, _ := item.MarshalJSON()
-		var ki k8sItem
-		if json.Unmarshal(raw, &ki) == nil {
-			result[ki.Metadata.Name] = statusFromConditions(ki.Status.Conditions)
-		}
-	}
-	return result
+	return statusesOf(items)
 }
 
-func fetchArgoResource(client dynamic.Interface, gvr schema.GroupVersionResource) map[string]NodeStatus {
-	list, err := client.Resource(gvr).Namespace("").List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		log.Printf("live: list %s: %v", gvr.Resource, err)
-		return nil
-	}
+// statusesOf maps object name → Ready-condition status.
+func statusesOf(items []unstructured.Unstructured) map[string]NodeStatus {
 	result := make(map[string]NodeStatus)
-	for _, item := range list.Items {
-		raw, _ := item.MarshalJSON()
-		var ai argoItem
-		if json.Unmarshal(raw, &ai) == nil {
-			result[ai.Metadata.Name] = statusFromArgo(ai)
+	for _, item := range items {
+		var ki k8sItem
+		if decode(item, &ki) == nil {
+			result[ki.Metadata.Name] = statusFromConditions(ki.Status.Conditions)
 		}
 	}
 	return result

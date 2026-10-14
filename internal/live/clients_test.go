@@ -83,6 +83,13 @@ var gvrToList = map[schema.GroupVersionResource]string{
 	gvrArgoApplications: "ApplicationList",
 	gvrGateways:         "GatewayList",
 	gvrHTTPRoutes:       "HTTPRouteList",
+	gvrOCIRepositories:  "OCIRepositoryList",
+	gvrFluxInstances:    "FluxInstanceList",
+	gvrHelmReleases:     "HelmReleaseList",
+	gvrDeployments:      "DeploymentList",
+	gvrStatefulSets:     "StatefulSetList",
+	gvrDaemonSets:       "DaemonSetList",
+	gvrPods:             "PodList",
 }
 
 func readyKustomization(name string) *unstructured.Unstructured {

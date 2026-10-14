@@ -13,7 +13,7 @@ Point it at a Flux or ArgoCD cluster folder and get a standalone HTML file you c
 - Cards view alongside the graph for quick scanning
 - SOPS-encrypted substitution values are automatically stripped from the output
 - **PR preview** — visual diff of what a pull request changes in the cluster graph
-- **Live mode** — real-time reconciliation status from a running cluster, per-cluster kubeconfigs and reachability
+- **Live mode** — real-time reconciliation status from a running cluster, per-cluster kubeconfigs and reachability, actual workload health per app with GitOps drift detection
 - **Endpoint inventory** — HTTPRoutes and Gateways of all clusters with Accepted/ResolvedRefs status, optional reachability probe, and Prometheus `http_sd` targets for blackbox-exporter
 - HTTP dashboard with HTMX-driven multi-cluster view
 - PDF export via headless Chromium

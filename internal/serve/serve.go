@@ -72,6 +72,11 @@ type ClusterSummary struct {
 	// Reachability is "reachable", "unreachable" or "unconfigured" (live mode).
 	Reachability string `json:"reachability,omitempty"`
 	LiveError    string `json:"liveError,omitempty"`
+	// WorkloadSummary counts nodes per actual workload health; Drift counts
+	// nodes that are GitOps-ready while their workloads are not.
+	WorkloadSummary map[string]int `json:"workloadSummary,omitempty"`
+	Drift           int            `json:"drift,omitempty"`
+	WorkloadError   string         `json:"workloadError,omitempty"`
 }
 
 // Server holds the HTTP mux and cluster cache.
@@ -232,6 +237,7 @@ func (s *Server) enrichCluster(name string, p *graph.ClusterProfile) {
 		clusterReachable.DeleteLabelValues(name)
 	}
 	s.updateEndpoints(name, st)
+	updateWorkloadMetrics(name, p)
 	log.Printf("live enriched %s  reachability=%s", name, st.Reachability)
 }
 
@@ -438,6 +444,19 @@ func (s *Server) handleAPIclusters(w http.ResponseWriter, _ *http.Request) {
 				if len(health) > 0 {
 					cs.HealthSummary = health
 				}
+				wl := make(map[string]int)
+				for _, n := range p.Graph.Nodes {
+					if n.Workloads == nil {
+						continue
+					}
+					wl[n.Workloads.Status]++
+					if n.Workloads.Drift {
+						cs.Drift++
+					}
+				}
+				if len(wl) > 0 {
+					cs.WorkloadSummary = wl
+				}
 			}
 		}
 		if t, ok := s.refreshed[name]; ok {
@@ -446,6 +465,7 @@ func (s *Server) handleAPIclusters(w http.ResponseWriter, _ *http.Request) {
 		if st, ok := s.liveStatus[name]; ok {
 			cs.Reachability = st.Reachability
 			cs.LiveError = st.Error
+			cs.WorkloadError = st.WorkloadError
 		}
 		summaries = append(summaries, cs)
 	}

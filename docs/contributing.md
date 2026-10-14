@@ -67,3 +67,16 @@ dagger call -m ./dagger lint --src .
 - `golangci-lint` with project config
 - No panics in library code — return errors
 - Security: no credentials in HTML output, validate external inputs at boundaries
+
+## Releases
+
+Releases are cut with [release-please](https://github.com/googleapis/release-please) from the conventional-commit history (`feat:` → minor, `fix:` → patch while < 1.0):
+
+1. Every push to `main` updates the release pull request (version bump + `CHANGELOG.md`).
+2. Merging it tags `vX.Y.Z`, creates the GitHub release and dispatches `build-scan-image.yaml` at the tag.
+3. The tag build publishes:
+    - image `ghcr.io/stuttgart-things/clusterscope:vX.Y.Z`, plus `latest` on the same digest
+    - kustomize bases `clusterscope-kustomize` and `clusterscope-kustomize-multi-repo` at `vX.Y.Z` (+ `latest`), **pinned to the image `vX.Y.Z`**
+    - binaries (goreleaser) attached to the release
+
+Pushes to `main` publish the image as `<short sha>` and `main`; `latest` only moves on a release. `task trigger-release [TAG=vX.Y.Z]` republishes an existing tag.

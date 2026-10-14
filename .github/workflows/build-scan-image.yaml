@@ -1,4 +1,16 @@
 ---
+# Builds the container image from the Dockerfile (Chromium for PDF export, git
+# for PR preview — so not ko) and, at a release tag, publishes everything that
+# belongs to the version.
+#
+#   pull request ──▶ image <short sha>
+#   push to main ──▶ image <short sha> + main
+#   tag vX.Y.Z   ──▶ image vX.Y.Z + latest, kustomize bases vX.Y.Z (+ latest)
+#   (dispatched      pinned to image vX.Y.Z, binaries on the GitHub release
+#    by release-please.yaml)
+#
+# `latest` moves only on a release. The image is built once per run; extra
+# tags are added to the pushed digest, so they cannot disagree.
 name: Build, Push & Scan Container Image
 on:
   push:
@@ -11,6 +23,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
 jobs:
   build:
     name: Build & Push Image (Dagger)
@@ -18,6 +33,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image-ref: ${{ steps.meta.outputs.image-ref }}
 
     steps:
       - name: Checkout
@@ -25,10 +42,25 @@ jobs:
 
       - name: Set build metadata
         id: meta
+        env:
+          IS_TAG: ${{ github.ref_type == 'tag' }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
         run: |
-          echo "commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          if [ "$IS_TAG" = "true" ]; then
+            primary="$REF_NAME"; extra="latest"
+          elif [ "$EVENT" = "pull_request" ]; then
+            primary="$(git rev-parse --short HEAD)"; extra=""
+          else
+            primary="$(git rev-parse --short HEAD)"; extra="main"
+          fi
+          {
+            echo "primary=$primary"
+            echo "extra=$extra"
+            echo "image-ref=${IMAGE}:${primary}"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Build & push commit tag
+      - name: Build & push image
         uses: dagger/dagger-for-github@v6
         with:
           version: "0.20.0"
@@ -38,7 +70,7 @@ jobs:
             bake-image
             --src .
             --repository-name ${{ github.repository }}
-            --tag ${{ steps.meta.outputs.commit }}
+            --tag ${{ steps.meta.outputs.primary }}
             --registry-url ghcr.io
             --registry-username env:GITHUB_ACTOR
             --registry-password env:GITHUB_TOKEN
@@ -48,22 +80,72 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}
 
-      - name: Build & push latest tag
-        uses: dagger/dagger-for-github@v6
-        with:
-          version: "0.20.0"
-          verb: call
-          module: github.com/stuttgart-things/blueprints/kubernetes-microservice@v1.71.0
-          args: >-
-            bake-image
-            --src .
-            --repository-name ${{ github.repository }}
-            --tag latest
-            --registry-url ghcr.io
-            --registry-username env:GITHUB_ACTOR
-            --registry-password env:GITHUB_TOKEN
-            --dockerfile Dockerfile
+      - name: Add extra tag to the pushed digest
+        if: steps.meta.outputs.extra != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+          PRIMARY: ${{ steps.meta.outputs.primary }}
+          EXTRA: ${{ steps.meta.outputs.extra }}
+        run: |
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create --tag "${IMAGE}:${EXTRA}" "${IMAGE}:${PRIMARY}"
+          docker buildx imagetools inspect "${IMAGE}:${EXTRA}" | head -5
+
+  # The kustomize bases carry the image reference, so they are built only once
+  # the image exists, and pin the version just published instead of the
+  # ":latest" placeholder in the profiles (kcl-parameters wins over the
+  # profile file). `latest` is applied with oras tag to the same digest.
+  kustomize:
+    if: github.ref_type == 'tag'
+    needs: build
+    uses: stuttgart-things/github-workflow-templates/.github/workflows/call-push-kustomize.yaml@main
+    with:
+      runs-on: ubuntu-latest
+      kcl-source-dir: kcl
+      kcl-profile-file: tests/kcl-deploy-profile.yaml
+      kustomize-oci-repo: ghcr.io/stuttgart-things/clusterscope-kustomize
+      kcl-parameters: "config.image=ghcr.io/stuttgart-things/clusterscope:${{ github.ref_name }}"
+      tag: ${{ github.ref_name }}
+      additional-tags: latest
+    secrets: inherit # pragma: allowlist secret
+
+  kustomize-multi-repo:
+    if: github.ref_type == 'tag'
+    needs: build
+    uses: stuttgart-things/github-workflow-templates/.github/workflows/call-push-kustomize.yaml@main
+    with:
+      runs-on: ubuntu-latest
+      kcl-source-dir: kcl
+      kcl-profile-file: tests/kcl-multi-repo-prod-profile.yaml
+      kustomize-oci-repo: ghcr.io/stuttgart-things/clusterscope-kustomize-multi-repo
+      kcl-parameters: "config.image=ghcr.io/stuttgart-things/clusterscope:${{ github.ref_name }}"
+      tag: ${{ github.ref_name }}
+      additional-tags: latest
+    secrets: inherit # pragma: allowlist secret
+
+  # Binaries for the release release-please created. keep-existing in
+  # .goreleaser.yaml leaves its notes untouched and only attaches the assets.
+  binaries:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: v2.13.3
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

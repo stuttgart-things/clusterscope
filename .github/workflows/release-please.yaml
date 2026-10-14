@@ -1,0 +1,60 @@
+---
+# Cuts releases from the conventional-commit history: opens a release pull
+# request, and on merge tags the commit and creates the GitHub release.
+#
+# It does not build. Publishing happens in build-scan-image.yaml, dispatched
+# at the new tag:
+#
+#   push to main ──▶ release-please updates the release PR
+#   merge that PR ──▶ tag vX.Y.Z ──▶ dispatch build-scan-image.yaml AT the tag
+#                     ──▶ image vX.Y.Z + latest, kustomize bases pinned to it,
+#                         binaries attached to the release
+#
+# Same pattern as zaehlwerk and schmetterpause. Replaces semantic-release,
+# whose kustomize base referenced :latest instead of the released image.
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+# Read-only by default; the job widens it for itself alone.
+permissions:
+  contents: read
+
+concurrency:
+  # One release pull request at a time.
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      # Creates the tag and the GitHub release.
+      contents: write
+      # Opens and updates the release pull request.
+      pull-requests: write
+      # Dispatches the build at the new tag. See the step below.
+      actions: write
+    steps:
+      # v5.0.0 — the SHA is the pin, the tag is the comment.
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # A tag pushed with the GITHUB_TOKEN triggers no workflow (GitHub
+      # suppresses it to prevent loops), so a `push: tags` trigger would never
+      # fire for a release. workflow_dispatch is the documented exception.
+      - name: Build and publish at the new tag
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          echo "released ${TAG} — dispatching the build at it"
+          gh workflow run build-scan-image.yaml \
+            --repo "${GITHUB_REPOSITORY}" --ref "${TAG}"

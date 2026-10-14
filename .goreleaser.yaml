@@ -50,3 +50,11 @@ changelog:
       - "^chore:"
       - Merge pull request
       - Merge branch
+
+# The GitHub release is created by release-please (with its changelog);
+# goreleaser only attaches the binaries.
+release:
+  mode: keep-existing
+  # task trigger-release republishes a tag; uploads must not fail on assets
+  # from the first run.
+  replace_existing_artifacts: true

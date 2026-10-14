@@ -3,14 +3,16 @@ name: Deploy Pages
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Release"]
+    # The release build: build-scan-image.yaml dispatched at a new tag.
+    workflows: ["Build, Push & Scan Container Image"]
     types: [completed]
 
 jobs:
   pages:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'workflow_dispatch')
     uses: stuttgart-things/github-workflow-templates/.github/workflows/call-deploy-pages.yaml@main
     with:
       runs-on: ubuntu-latest

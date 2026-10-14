@@ -465,13 +465,25 @@ function getLiveMeta(c) {
     return '<span class="cluster-meta unreachable" title="' + escHtml(c.liveError || '') + '">unreachable</span>';
   if (c.reachability === "unconfigured")
     return '<span class="cluster-meta" title="' + escHtml(c.liveError || '') + '">no kubeconfig</span>';
-  return '';
+  if (c.workloadError)
+    return '<span class="cluster-meta unreachable" title="' + escHtml(c.workloadError) + '">workloads unreadable</span>';
+  const w = c.workloadSummary;
+  if (!w) return '';
+  const parts = [];
+  if (w.down) parts.push(w.down + ' down');
+  if (w.degraded) parts.push(w.degraded + ' degraded');
+  if (c.drift) parts.push(c.drift + ' drift');
+  if (!parts.length) return '<span class="cluster-meta">workloads ok</span>';
+  return '<span class="cluster-meta unreachable" title="actual workload state (GitOps-ready but not running = drift)">' + parts.join(' &middot; ') + '</span>';
 }
 
 function getHealthDot(c) {
   if (c.reachability === "unreachable") return '<span class="health-dot unreachable" title="API server unreachable"></span>';
   if (!c.healthSummary) return '<span class="health-dot unknown"></span>';
   const h = c.healthSummary;
+  const w = c.workloadSummary || {};
+  if (w.down > 0) return '<span class="health-dot degraded" title="workloads down"></span>';
+  if (w.degraded > 0 || c.drift > 0) return '<span class="health-dot mixed" title="workloads degraded"></span>';
   if (h.failed > 0 && !h.ready) return '<span class="health-dot degraded"></span>';
   if (h.failed > 0) return '<span class="health-dot mixed"></span>';
   if (h.ready > 0) return '<span class="health-dot healthy"></span>';

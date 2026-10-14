@@ -33,7 +33,10 @@ internal/
   graph/
     graph.go           # Shared data model: Node, Edge, Graph, ClusterProfile
   live/
-    live.go            # kubectl enrichment (Flux + ArgoCD)
+    live.go            # GitOps status enrichment (Flux + ArgoCD)
+    clients.go         # per-cluster kubeconfigs + reachability
+    endpoints.go       # Gateway/HTTPRoute inventory
+    workloads.go       # actual workload health per node + drift
   render/
     render.go          # HTML generation (WriteHTML, WriteIndex)
     template.html      # D3.js cluster profile template

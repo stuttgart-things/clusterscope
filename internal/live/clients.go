@@ -33,6 +33,9 @@ type ClusterStatus struct {
 	// Endpoints is the Gateway API inventory; nil unless the cluster is
 	// reachable.
 	Endpoints *Endpoints
+	// WorkloadError is set when workloads or pods could not be listed
+	// (typically missing RBAC); node workload health is then absent.
+	WorkloadError string
 }
 
 // ClientConfig controls how a kubeconfig is resolved for each cluster.
@@ -95,11 +98,14 @@ type Clients struct {
 
 	mu    sync.Mutex
 	cache map[string]*kubeClient // key: kubeconfig path ("" = default)
+	// restarts holds the container restart totals per cluster and workload
+	// from the previous refresh.
+	restarts map[string]map[string]int32
 }
 
 // NewClients returns a client resolver for cfg.
 func NewClients(cfg ClientConfig) *Clients {
-	return &Clients{cfg: cfg, newClients: newClientsForPath, cache: make(map[string]*kubeClient)}
+	return &Clients{cfg: cfg, newClients: newClientsForPath, cache: make(map[string]*kubeClient), restarts: make(map[string]map[string]int32)}
 }
 
 func (c *Clients) perCluster() bool {
@@ -193,19 +199,40 @@ func (c *Clients) Enrich(profile *graph.ClusterProfile, cluster string) ClusterS
 	}
 
 	st.Reachability = Reachable
+	var members map[string][]objRef
 	switch profile.Technology {
 	case "argocd":
-		enrichArgoCD(profile, kc.dynamic)
+		members = enrichArgoCD(profile, kc.dynamic)
 	default:
-		enrichFlux(profile, kc.dynamic)
+		members = enrichFlux(profile, kc.dynamic)
 	}
+	c.enrichWorkloads(profile, cluster, kc.dynamic, members, &st)
 	ep := fetchEndpoints(kc.dynamic, profile.Technology)
 	st.Endpoints = &ep
 	return st
 }
 
+// enrichWorkloads evaluates the actual workload health per node.
+func (c *Clients) enrichWorkloads(profile *graph.ClusterProfile, cluster string, client dynamic.Interface, members map[string][]objRef, st *ClusterStatus) {
+	snap, err := fetchWorkloads(client, profile.Technology, time.Now())
+	if err != nil {
+		log.Printf("live: cluster %s workloads: %v", cluster, err)
+		st.WorkloadError = err.Error()
+		clearWorkloads(profile)
+		return
+	}
+	c.mu.Lock()
+	prev := c.restarts[cluster]
+	c.mu.Unlock()
+	cur := applyWorkloads(profile, snap, members, prev)
+	c.mu.Lock()
+	c.restarts[cluster] = cur
+	c.mu.Unlock()
+}
+
 func markUnknown(profile *graph.ClusterProfile, msg string) {
 	for i := range profile.Graph.Nodes {
+		profile.Graph.Nodes[i].Workloads = nil
 		profile.Graph.Nodes[i].Status = "unknown"
 		profile.Graph.Nodes[i].Message = msg
 		profile.Graph.Nodes[i].UpdatedAt = ""

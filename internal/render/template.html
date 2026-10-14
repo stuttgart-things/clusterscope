@@ -126,7 +126,8 @@
   /* DETAIL PANEL */
   #detail-panel{position:fixed;top:80px;left:20px;width:300px;background:#161b22;
     border:1px solid #58a6ff;border-radius:12px;padding:16px;z-index:100;
-    box-shadow:0 8px 32px #00000088;display:none;animation:slideIn .2s ease}
+    box-shadow:0 8px 32px #00000088;display:none;animation:slideIn .2s ease;
+    max-height:calc(100vh - 100px);overflow-y:auto}
   @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
   #detail-panel h4{color:#58a6ff;font-size:14px;margin-bottom:10px;border-bottom:1px solid #30363d;padding-bottom:8px}
   .dp-row{display:flex;gap:8px;margin-bottom:6px;font-size:12px}
@@ -136,6 +137,9 @@
   .dp-sub-title{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#7d8590;margin-bottom:4px}
   .dp-sub-item{font-size:10px;font-family:monospace;color:#8b949e;margin-bottom:2px;display:flex;gap:6px}
   .dp-sub-key{color:#58a6ff}
+  .dp-wl{font-size:10px;font-family:monospace;color:#8b949e;margin-bottom:4px}
+  .dp-wl-head{display:flex;gap:6px;align-items:baseline}
+  .dp-wl-issue{color:#f85149;padding-left:12px;word-break:break-all}
   #detail-close{position:absolute;top:10px;right:12px;cursor:pointer;color:#7d8590;font-size:16px;line-height:1}
   #detail-close:hover{color:#e6edf3}
 
@@ -562,6 +566,18 @@ nodeGs.append("rect")
     return COLORS[d.type]||"#58a6ff";
   }).attr("stroke-width",d => d.status && d.status!=="unknown" ? 2 : 1.5);
 
+/* Actual workload state (live): badge top-right, dashed border on drift
+   (GitOps ready, workloads not). */
+const WL_COLORS = {healthy:"#3fb950", degraded:"#f0883e", down:"#f85149"};
+nodeGs.filter(d => d.workloads && d.workloads.total > 0).append("text")
+  .attr("x", NODE_W/2-6).attr("y", -NODE_H/2+11).attr("text-anchor","end")
+  .attr("font-size",9).attr("font-weight","700").attr("font-family","Consolas,monospace")
+  .attr("fill", d => WL_COLORS[d.workloads.status]||"#7d8590")
+  .text(d => (d.workloads.drift ? "⚠ " : "") + d.workloads.ready + "/" + d.workloads.total)
+  .append("title").text(d => "workloads " + d.workloads.status + (d.workloads.drift ? " — GitOps reports ready" : ""));
+nodeGs.filter(d => d.workloads && d.workloads.drift).select("rect")
+  .attr("stroke", d => WL_COLORS[d.workloads.status]||"#f0883e").attr("stroke-dasharray","5 3").attr("stroke-width",2);
+
 nodeGs.each(function(d) {
   const g = d3.select(this);
   const words = d.id.split(/[-_]/);
@@ -608,6 +624,17 @@ function highlightGraphNodes(q) {
 }
 
 /* ═══════════ DETAIL PANEL ═══════════ */
+function esc(v) {
+  return String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function ago(ts) {
+  const s = Math.round((Date.now() - new Date(ts)) / 1000);
+  if (isNaN(s)) return "?";
+  if (s < 90) return s + "s ago";
+  if (s < 5400) return Math.round(s/60) + "m ago";
+  if (s < 172800) return Math.round(s/3600) + "h ago";
+  return Math.round(s/86400) + "d ago";
+}
 function showDetail(d, event) {
   const panel = document.getElementById("detail-panel");
   // Position near clicked node, keeping panel within viewport
@@ -638,8 +665,16 @@ function showDetail(d, event) {
     const statusColor = {ready:"#3fb950",failed:"#f85149",progressing:"#f0883e",unknown:"#444c56"};
     const c = statusColor[d.status]||"#8b949e";
     rows.push(["Status", `<span style="color:${c};font-weight:700">${d.status}</span>`]);
-    if (d.message) rows.push(["Message", d.message]);
-    if (d.updatedAt) rows.push(["Updated", d.updatedAt]);
+    if (d.message) rows.push(["Message", esc(d.message)]);
+    if (d.updatedAt) rows.push(["Last transition",
+      esc(d.updatedAt) + " (" + ago(d.updatedAt) + (d.interval ? ", interval " + esc(d.interval) : "") + ")"]);
+  }
+  const w = d.workloads;
+  if (w) {
+    const wc = {healthy:"#3fb950",degraded:"#f0883e",down:"#f85149"}[w.status]||"#8b949e";
+    rows.push(["Workloads", `<span style="color:${wc};font-weight:700">${esc(w.status)}</span>` +
+      (w.total ? ` ${w.ready}/${w.total}` : "")]);
+    if (w.drift) rows.push(["Drift", `<span style="color:#f0883e">GitOps ready, workloads not</span>`]);
   }
   let html = rows.map(([k,v]) =>
     `<div class="dp-row"><span class="dp-key">${k}</span><span class="dp-val">${v}</span></div>`
@@ -652,6 +687,25 @@ function showDetail(d, event) {
       html += `<div class="dp-sub-item"><span class="dp-sub-key">${k}</span><span>${v.length>30?v.slice(0,30)+"…":v}</span></div>`;
     });
     if (entries.length > 8) html += `<div style="font-size:10px;color:#444c56">+${entries.length-8} more…</div>`;
+    html += `</div>`;
+  }
+  if (w && (w.items?.length || w.helmReleases?.length)) {
+    html += `<div class="dp-sub"><div class="dp-sub-title">Workloads (live)</div>`;
+    (w.items||[]).forEach(x => {
+      const c = {healthy:"#3fb950",degraded:"#f0883e",down:"#f85149"}[x.status]||"#8b949e";
+      html += `<div class="dp-wl"><div class="dp-wl-head"><span style="color:${c}">●</span>` +
+        `<span class="dp-sub-key">${esc(x.kind)}</span><span>${esc(x.namespace)}/${esc(x.name)}</span>` +
+        `<span style="margin-left:auto">${x.ready}/${x.desired}</span></div>` +
+        (x.restarts ? `<div class="dp-wl-issue">+${x.restarts} restarts since last refresh</div>` : "") +
+        (x.issues||[]).map(i => `<div class="dp-wl-issue">${esc(i)}</div>`).join("") + `</div>`;
+    });
+    (w.helmReleases||[]).forEach(h => {
+      const c = {ready:"#3fb950",failed:"#f85149",progressing:"#f0883e"}[h.status]||"#8b949e";
+      html += `<div class="dp-wl"><div class="dp-wl-head"><span style="color:${c}">●</span>` +
+        `<span class="dp-sub-key">HelmRelease</span><span>${esc(h.namespace)}/${esc(h.name)}</span>` +
+        `<span style="margin-left:auto;color:${c}">${esc(h.status)}</span></div>` +
+        (h.status !== "ready" && h.message ? `<div class="dp-wl-issue">${esc(h.message)}</div>` : "") + `</div>`;
+    });
     html += `</div>`;
   }
   document.getElementById("dp-body").innerHTML = html;

@@ -26,6 +26,30 @@ func (m *Clusterscope) Lint(
 	})
 }
 
+// Test runs the Go unit tests with the race detector.
+//
+// The race detector matters here: serve mode refreshes live status from
+// goroutines (one per cluster) while HTTP handlers read the same profiles.
+func (m *Clusterscope) Test(
+	ctx context.Context,
+	src *dagger.Directory,
+	// +optional
+	// +default="1.25.5"
+	goVersion string,
+	// +optional
+	// +default="./..."
+	testPath string,
+) (string, error) {
+	return dag.Container().
+		From("golang:"+goVersion).
+		WithDirectory("/src", src).
+		WithWorkdir("/src").
+		WithMountedCache("/go/pkg/mod", dag.CacheVolume("gomod")).
+		WithMountedCache("/root/.cache/go-build", dag.CacheVolume("gobuild")).
+		WithExec([]string{"go", "test", testPath, "-race", "-cover"}).
+		Stdout(ctx)
+}
+
 // Build compiles the clusterscope binary
 func (m *Clusterscope) Build(
 	ctx context.Context,

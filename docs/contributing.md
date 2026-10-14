@@ -22,7 +22,8 @@ Key tasks:
 | Task | Description |
 |---|---|
 | `task lint` | Run golangci-lint via Dagger |
-| `task build-test-binary` | Build + test via Dagger |
+| `task test` | Run Go unit tests with race detector via Dagger (same as CI) |
+| `task build-test-binary` | Build binary + smoke test (`--help`) via Dagger |
 | `task build-output-binary` | Build binary to `/tmp/go/build/` |
 | `task build-scan-image-ko` | Build + push + scan container image |
 | `task ui-serve ROOT=./clusters` | Run serve mode locally |

@@ -50,6 +50,14 @@ tasks:
           export --path={{ .LINT_REPORT_PATH }} \
           --progress plain
 
+  test:
+    desc: Run Go unit tests (race detector) via Dagger — same call as CI
+    cmds:
+      - |
+        dagger call -m {{ .DAGGER_MODULE_DIR }} test \
+          --src "{{ .SOURCE_CODE_DIR }}" \
+          --progress plain
+
   build-test-binary:
     desc: Build and test binary via Dagger
     cmds:

@@ -24,6 +24,26 @@ harvester/clusters/edge                   → -lab (or "default")
 
 So `-root ./clusters` shows all labs of the repo at once, and `-root ./clusters/labul/vsphere` shows one lab. Use `-lab <name>` for clusters whose path does not name a lab, and for clusters that only have a kubeconfig.
 
+### Several repos, name and lab overrides (`-config`)
+
+When the clusters of a lab live in several repos, or a directory is not named like its cluster, use `-config` instead of `-root` (YAML or JSON):
+
+```yaml
+roots:
+  - path: /data/stuttgart-things/clusters/labul
+  - path: /data/harvester/clusters
+    name: harvester          # prefix of the shown path: harvester/edge-test2
+    lab: harvester           # lab of this root's clusters (optional)
+    include: [edge-test2]    # only these directories (default: all)
+clusters:                    # per directory name
+  edge-test2: { name: edge-tt-test2, lab: labul }
+```
+
+- Lab, in order: the cluster override, the root's `lab`, the path (`clusters/<lab>/…`), `-lab`.
+- The cluster **name** is the key for the kubeconfig (`-kubeconfig-dir/<name>`) and the live status, so override it wherever directory and cluster differ.
+- A root that does not exist yet (e.g. not yet cloned by git-sync) is skipped and scanned as soon as it appears. Roots are also rescanned every 5 minutes, because git-sync publishes a new checkout by swapping a symlink above the watched directories.
+- Unquoted YAML 1.1 booleans (`y`, `yes`, `on`, …) as names are read as `true`, so quote such names.
+
 Cluster names must be unique (they are also the kubeconfig names). A second directory with the same name is skipped and reported as `duplicate name`.
 
 Directories with no GitOps object (no Flux Kustomization / source, no Argo CD Application), and with no reachable cluster behind them, are listed but not counted as clusters. These are typically Crossplane claims or clusterbook data next to the cluster directories.
@@ -57,6 +77,7 @@ clusterbook (IPs/DNS) and machinery (ordered clusters) are planned as further so
 | warning | `route` | HTTPRoute not Accepted / ResolvedRefs |
 | warning | `workloads unreadable` | workloads/pods could not be listed (RBAC) |
 | warning | `duplicate name` | second directory with an existing cluster name |
+| info | `no GitOps yet` | cluster directory and a running cluster, but no Flux / Argo CD objects in either (e.g. k3s set up, bootstrap pending) |
 | info | `not in Git` (object) | Kustomization / Application in the cluster without any GitOps manager: applied by hand |
 
 Kustomizations / Applications in the cluster that are not in the cluster directory but were created by another GitOps object (labels `kustomize.toolkit.fluxcd.io/name`, `helm.toolkit.fluxcd.io/name`, `fluxcd.controlplane.io/name`, `app.kubernetes.io/instance`, annotation `argocd.argoproj.io/tracking-id`, or an owner reference) are **nested**: they are in Git elsewhere. They are counted per cluster (`+N nested`), not reported.

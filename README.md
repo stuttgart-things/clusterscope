@@ -72,6 +72,7 @@ See [PR Preview](docs/preview.md) for full documentation.
 | `-out` | stdout | Output file path |
 | `-tech` | `flux` | Technology to parse: `flux` \| `argocd` |
 | `-root` | `.` | Root directory: one cluster, a directory of clusters, or a repo tree (`clusters/<lab>/…/<cluster>`) |
+| `-config` | — | Several roots (repos) + per-directory cluster name / lab overrides, replaces `-root` (see [Lab View](docs/lab.md)) |
 | `-lab` | `default` | Lab name for clusters whose path does not contain `clusters/<lab>/…` |
 | `-serve` | — | Start HTTP dashboard server (e.g. `:8080`) |
 | `-live` | `false` | Enrich graph with real-time reconciliation status |

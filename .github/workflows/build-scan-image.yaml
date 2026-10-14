@@ -9,14 +9,20 @@
 #   (dispatched      pinned to image vX.Y.Z, binaries on the GitHub release
 #    by release-please.yaml)
 #
-# `latest` moves only on a release. The image is built once per run; extra
-# tags are added to the pushed digest, so they cannot disagree.
+# `latest` moves only on a release. The image is built once per run; the extra
+# tag is set with `crane tag` on the pushed manifest, so both tags name the same
+# digest (`docker buildx imagetools create` would wrap it in a new index).
 name: Build, Push & Scan Container Image
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+    # The release-please PR only touches these. Its runs are started by
+    # github-actions[bot] and fail at startup; there is nothing to build.
+    paths-ignore:
+      - CHANGELOG.md
+      - .release-please-manifest.json
   workflow_dispatch:
 
 concurrency:
@@ -80,6 +86,11 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}
 
+      # crane rather than oras: setup-crane is on the org's action allowlist.
+      - name: Set up crane
+        if: steps.meta.outputs.extra != ''
+        uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+
       - name: Add extra tag to the pushed digest
         if: steps.meta.outputs.extra != ''
         env:
@@ -87,9 +98,12 @@ jobs:
           PRIMARY: ${{ steps.meta.outputs.primary }}
           EXTRA: ${{ steps.meta.outputs.extra }}
         run: |
-          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker buildx imagetools create --tag "${IMAGE}:${EXTRA}" "${IMAGE}:${PRIMARY}"
-          docker buildx imagetools inspect "${IMAGE}:${EXTRA}" | head -5
+          echo "$GITHUB_TOKEN" | crane auth login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          crane tag "${IMAGE}:${PRIMARY}" "${EXTRA}"
+          a=$(crane digest "${IMAGE}:${PRIMARY}")
+          b=$(crane digest "${IMAGE}:${EXTRA}")
+          echo "${PRIMARY}=${a} ${EXTRA}=${b}"
+          [ "$a" = "$b" ] || { echo "::error::tags disagree"; exit 1; }
 
   # The kustomize bases carry the image reference, so they are built only once
   # the image exists, and pin the version just published instead of the

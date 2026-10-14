@@ -15,8 +15,11 @@ clusterscope [flags]
 | `-out` | stdout | Output file path (`.html`) |
 | `-root` | `.` | Root directory containing cluster subdirs |
 | `-serve` | — | Start HTTP dashboard server (e.g. `:8080`) |
-| `-live` | `false` | Enrich graph with real-time kubectl status |
-| `-kubeconfig` | — | Path to kubeconfig file |
+| `-live` | `false` | Enrich graph with real-time status from the Kubernetes API |
+| `-kubeconfig` | — | Path to default kubeconfig file |
+| `-kubeconfig-dir` | — | Directory with one kubeconfig per cluster (see [Live Mode](live.md#multi-cluster-live-mode)) |
+| `-kubeconfig-map` | — | YAML mapping cluster name → kubeconfig path |
+| `-self-cluster` | — | Cluster clusterscope runs in (uses `-kubeconfig` / in-cluster) |
 | `-refresh` | `30` | Live status refresh interval in seconds |
 | `-repos-config` | — | Path to repos.yaml (git-sync Kubernetes mode) |
 | `-diff` | `false` | Compare two cluster directories and output a diff |

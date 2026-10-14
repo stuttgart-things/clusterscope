@@ -136,6 +136,8 @@
   .health-dot.degraded { background: #f85149; box-shadow: 0 0 4px #f8514966; }
   .health-dot.mixed { background: #f0883e; box-shadow: 0 0 4px #f0883e66; }
   .health-dot.unknown { background: #444c56; }
+  .health-dot.unreachable { background: transparent; border: 2px solid #f85149; }
+  .cluster-meta.unreachable { color: #f85149; }
 
   /* loading state */
   nav.sidebar ul.htmx-indicator { opacity: 0.5; }
@@ -410,6 +412,7 @@ function loadClusters() {
         const meta = [];
         if (c.nodeCount) meta.push(c.nodeCount + ' nodes');
         if (c.appCount) meta.push(c.appCount + ' apps');
+        const liveMeta = getLiveMeta(c);
         return `<li>
           <a href="#" onclick="loadCluster('${escHtml(c.name)}');return false;"
              id="link-${escHtml(c.name)}"
@@ -418,6 +421,7 @@ function loadClusters() {
             <div class="cluster-info">
               <span class="cluster-name">${escHtml(c.name)}</span>
               ${meta.length ? '<span class="cluster-meta">' + meta.join(' &middot; ') + '</span>' : ''}
+              ${liveMeta}
             </div>
             <span class="badge ${techClass}">${techLabel}</span>
           </a>
@@ -436,7 +440,16 @@ function loadClusters() {
     });
 }
 
+function getLiveMeta(c) {
+  if (c.reachability === "unreachable")
+    return '<span class="cluster-meta unreachable" title="' + escHtml(c.liveError || '') + '">unreachable</span>';
+  if (c.reachability === "unconfigured")
+    return '<span class="cluster-meta" title="' + escHtml(c.liveError || '') + '">no kubeconfig</span>';
+  return '';
+}
+
 function getHealthDot(c) {
+  if (c.reachability === "unreachable") return '<span class="health-dot unreachable" title="API server unreachable"></span>';
   if (!c.healthSummary) return '<span class="health-dot unknown"></span>';
   const h = c.healthSummary;
   if (h.failed > 0 && !h.ready) return '<span class="health-dot degraded"></span>';

@@ -15,6 +15,7 @@ import (
 
 	"github.com/stuttgart-things/clusterscope/internal/diff"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
+	"github.com/stuttgart-things/clusterscope/internal/live"
 	"github.com/stuttgart-things/clusterscope/internal/render"
 	"github.com/stuttgart-things/clusterscope/internal/scan"
 	"github.com/stuttgart-things/clusterscope/internal/serve"
@@ -38,8 +39,11 @@ func main() {
 	serveAddr := flag.String("serve", "", "start HTTP dashboard server on addr (e.g. :8080); requires -root")
 	root := flag.String("root", ".", "root directory containing cluster subdirs (used with -serve)")
 	reposConfig := flag.String("repos-config", "", "path to repos.yaml defining git repositories (used with -serve in Kubernetes mode)")
-	liveMode := flag.Bool("live", false, "enrich graph with real-time reconciliation status via kubectl")
-	kubeconfig := flag.String("kubeconfig", "", "path to kubeconfig file (default: KUBECONFIG env / ~/.kube/config)")
+	liveMode := flag.Bool("live", false, "enrich graph with real-time reconciliation status from the Kubernetes API")
+	kubeconfig := flag.String("kubeconfig", "", "path to default kubeconfig file (default: in-cluster, KUBECONFIG env / ~/.kube/config)")
+	kubeconfigDir := flag.String("kubeconfig-dir", "", "directory with one kubeconfig file per cluster, named after the cluster dir (used with -live)")
+	kubeconfigMap := flag.String("kubeconfig-map", "", "YAML file mapping cluster name → kubeconfig path, relative to -kubeconfig-dir (used with -live)")
+	selfCluster := flag.String("self-cluster", "", "cluster clusterscope runs in; with -kubeconfig-dir/-kubeconfig-map only this cluster uses -kubeconfig / in-cluster")
 	refreshSeconds := flag.Int("refresh", 30, "live status refresh interval in seconds (used with -live)")
 	previewRoot := flag.String("preview-root", "", "directory containing PR head ref cluster files for diff preview (used with -serve)")
 
@@ -70,6 +74,7 @@ Examples:
   clusterscope -serve :8080 -root ./clusters/
   clusterscope -serve :8080 -root /data -repos-config /etc/git-sync/repos.yaml
   clusterscope -serve :8080 -root ./clusters/ -live -kubeconfig ~/.kube/prod
+  clusterscope -serve :8080 -root ./clusters/labul/vsphere -live -kubeconfig-dir /kubeconfigs -self-cluster platform-sthings
   clusterscope -serve :8080 -root /data/base -preview-root /data/head
   clusterscope -diff -base-dir ./clusters/prod -head-dir ./pr-clusters/prod
   clusterscope -diff -base-dir ./base -head-dir ./head -format json
@@ -99,9 +104,27 @@ Examples:
 				os.Exit(1)
 			}
 		}
+		var kubeconfigs map[string]string
+		if *liveMode && *kubeconfigMap != "" {
+			m, err := live.LoadMapFile(*kubeconfigMap)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "kubeconfig-map: %v\n", err)
+				os.Exit(1)
+			}
+			kubeconfigs = m
+		}
+		if *liveMode && *kubeconfigDir != "" {
+			if fi, err := os.Stat(*kubeconfigDir); err != nil || !fi.IsDir() {
+				fmt.Fprintf(os.Stderr, "kubeconfig-dir not found: %s\n", *kubeconfigDir)
+				os.Exit(1)
+			}
+		}
 		opts := serve.Options{
 			Live:           *liveMode,
 			Kubeconfig:     *kubeconfig,
+			KubeconfigDir:  *kubeconfigDir,
+			KubeconfigMap:  kubeconfigs,
+			SelfCluster:    *selfCluster,
 			RefreshSeconds: *refreshSeconds,
 			PreviewRoot:    *previewRoot,
 		}

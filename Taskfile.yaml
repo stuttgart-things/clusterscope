@@ -247,13 +247,17 @@ tasks:
         echo "Undeploy complete."
 
   trigger-release:
-    desc: Trigger Release workflow on GitHub Actions
+    desc: Re-run the publish build (image, kustomize, binaries) at a release tag (default: latest tag)
+    # Releases are cut by merging the release-please PR; this only republishes.
+    vars:
+      TAG:
+        sh: git describe --tags --abbrev=0
     cmds:
       - |
-        echo "Triggering Release workflow..."
-        gh workflow run Release
-        sleep 2
-        RUN_ID=$(gh run list --workflow=Release --limit=1 --json databaseId --jq '.[0].databaseId')
+        echo "Publishing {{ .TAG }}..."
+        gh workflow run build-scan-image.yaml --ref "{{ .TAG }}"
+        sleep 3
+        RUN_ID=$(gh run list --workflow=build-scan-image.yaml --branch "{{ .TAG }}" --limit=1 --json databaseId --jq '.[0].databaseId')
         echo "Run: https://github.com/stuttgart-things/clusterscope/actions/runs/${RUN_ID}"
         gh run watch "${RUN_ID}"
 

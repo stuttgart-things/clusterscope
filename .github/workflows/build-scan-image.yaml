@@ -10,7 +10,7 @@
 #    by release-please.yaml)
 #
 # `latest` moves only on a release. The image is built once per run; the extra
-# tag is set with `oras tag` on the pushed manifest, so both tags name the same
+# tag is set with `crane tag` on the pushed manifest, so both tags name the same
 # digest (`docker buildx imagetools create` would wrap it in a new index).
 name: Build, Push & Scan Container Image
 on:
@@ -86,11 +86,10 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}
 
-      - name: Set up oras
+      # crane rather than oras: setup-crane is on the org's action allowlist.
+      - name: Set up crane
         if: steps.meta.outputs.extra != ''
-        uses: oras-project/setup-oras@v1
-        with:
-          version: 1.2.2
+        uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
 
       - name: Add extra tag to the pushed digest
         if: steps.meta.outputs.extra != ''
@@ -99,10 +98,10 @@ jobs:
           PRIMARY: ${{ steps.meta.outputs.primary }}
           EXTRA: ${{ steps.meta.outputs.extra }}
         run: |
-          echo "$GITHUB_TOKEN" | oras login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          oras tag "${IMAGE}:${PRIMARY}" "${EXTRA}"
-          a=$(oras resolve "${IMAGE}:${PRIMARY}")
-          b=$(oras resolve "${IMAGE}:${EXTRA}")
+          echo "$GITHUB_TOKEN" | crane auth login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          crane tag "${IMAGE}:${PRIMARY}" "${EXTRA}"
+          a=$(crane digest "${IMAGE}:${PRIMARY}")
+          b=$(crane digest "${IMAGE}:${EXTRA}")
           echo "${PRIMARY}=${a} ${EXTRA}=${b}"
           [ "$a" = "$b" ] || { echo "::error::tags disagree"; exit 1; }
 

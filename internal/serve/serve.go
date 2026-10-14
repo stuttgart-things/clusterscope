@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -57,11 +58,15 @@ type Options struct {
 	// When set, GET /preview/<cluster> and GET /api/preview/<cluster> become
 	// available, showing a diff between root (base) and preview-root (head).
 	PreviewRoot string
+	// Lab is the lab name for clusters whose path does not name one
+	// (…/clusters/<lab>/…/<cluster>). Defaults to "default".
+	Lab string
 }
 
 // ClusterSummary is the JSON payload returned by GET /api/clusters.
 type ClusterSummary struct {
 	Name          string         `json:"name"`
+	Lab           string         `json:"lab,omitempty"`
 	Tech          string         `json:"tech"`
 	NodeCount     int            `json:"nodeCount"`
 	AppCount      int            `json:"appCount"`
@@ -89,6 +94,14 @@ type Server struct {
 	refreshed map[string]time.Time
 	scanErrs  map[string]string
 	ready     bool
+
+	// dirs holds the discovered cluster directories (with lab); duplicates
+	// are directories skipped because their name was already taken.
+	dirs       map[string]scan.ClusterDir
+	duplicates []scan.ClusterDir
+	// unmanaged holds the reachability of clusters that have a kubeconfig
+	// but no cluster directory.
+	unmanaged map[string]live.ClusterStatus
 
 	// clients resolves the kubeconfig per cluster; liveStatus holds the last
 	// cluster-level live result (reachability).
@@ -127,6 +140,8 @@ func Start(addr, root string, opts Options) error {
 		scanned:      make(map[string]time.Time),
 		refreshed:    make(map[string]time.Time),
 		scanErrs:     make(map[string]string),
+		dirs:         make(map[string]scan.ClusterDir),
+		unmanaged:    make(map[string]live.ClusterStatus),
 		liveStatus:   make(map[string]live.ClusterStatus),
 		endpoints:    make(map[string]endpointState),
 		probes:       make(map[string]map[string]probe.Result),
@@ -176,6 +191,8 @@ func Start(addr, root string, opts Options) error {
 	mux.HandleFunc("/api/endpoints", s.handleAPIendpoints)
 	mux.HandleFunc("/api/targets", s.handleAPItargets)
 	mux.HandleFunc("/endpoints", s.handleEndpoints)
+	mux.HandleFunc("/api/lab", s.handleAPIlab)
+	mux.HandleFunc("/lab", s.handleLab)
 	mux.HandleFunc("/clusters/", s.handleCluster)
 	mux.HandleFunc("/pdf/", s.handlePDF)
 	mux.HandleFunc("/api/preview/", s.handleAPIpreview)
@@ -216,7 +233,40 @@ func (s *Server) enrichAll() {
 			s.enrichCluster(name, p)
 		}(name, p)
 	}
+	s.pingUnmanaged()
 	wg.Wait()
+	s.updateLabMetrics()
+}
+
+// pingUnmanaged checks the clusters that have a kubeconfig but no cluster
+// directory, so the lab view can show them.
+func (s *Server) pingUnmanaged() {
+	s.mu.RLock()
+	var names []string
+	for _, n := range s.clients.Configured() {
+		if _, ok := s.dirs[n]; !ok {
+			names = append(names, n)
+		}
+	}
+	s.mu.RUnlock()
+
+	res := make(map[string]live.ClusterStatus, len(names))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for _, n := range names {
+		wg.Add(1)
+		go func(n string) {
+			defer wg.Done()
+			st := s.clients.Ping(n)
+			mu.Lock()
+			res[n] = st
+			mu.Unlock()
+		}(n)
+	}
+	wg.Wait()
+	s.mu.Lock()
+	s.unmanaged = res
+	s.mu.Unlock()
 }
 
 // enrichCluster runs live enrichment for one cluster and records its
@@ -253,33 +303,59 @@ func (s *Server) scanAll() {
 	start := time.Now()
 	defer func() { scanDuration.Observe(time.Since(start).Seconds()) }()
 
-	// Check if any immediate subdirectory contains YAML — if yes, multi-cluster mode.
-	// Only fall back to treating root as a single cluster if no subdir clusters exist.
-	hasSubClusters := false
-	if dirEntries, err := os.ReadDir(s.root); err == nil {
-		for _, e := range dirEntries {
-			if e.IsDir() && scan.HasYAML(filepath.Join(s.root, e.Name())) {
-				hasSubClusters = true
-				break
-			}
+	dirs := make(map[string]scan.ClusterDir)
+	var dups []scan.ClusterDir
+	for _, d := range scan.Discover(s.root, s.opts.Lab) {
+		if d.Duplicate {
+			log.Printf("scan: skipping %s — cluster name %q already used by %s", d.Path, d.Name, dirs[d.Name].Path)
+			dups = append(dups, d)
+			continue
 		}
+		dirs[d.Name] = d
 	}
 
-	if !hasSubClusters && scan.HasYAML(s.root) {
-		s.scanCluster(s.root, filepath.Base(s.root))
-		return
-	}
-
-	entries, err := os.ReadDir(s.root)
-	if err != nil {
-		log.Printf("scanAll: %v", err)
-		return
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			s.scanCluster(filepath.Join(s.root, e.Name()), e.Name())
+	// Forget clusters whose directory disappeared.
+	s.mu.Lock()
+	var removed []string
+	for name := range s.cache {
+		if _, ok := dirs[name]; !ok {
+			removed = append(removed, name)
 		}
 	}
+	for name := range s.scanErrs {
+		if _, ok := dirs[name]; !ok {
+			removed = append(removed, name)
+		}
+	}
+	for _, name := range removed {
+		delete(s.cache, name)
+		delete(s.scanErrs, name)
+		delete(s.scanned, name)
+		delete(s.refreshed, name)
+		delete(s.liveStatus, name)
+		delete(s.endpoints, name)
+		delete(s.probes, name)
+	}
+	s.dirs = dirs
+	s.duplicates = dups
+	s.mu.Unlock()
+	for _, name := range removed {
+		deleteClusterMetrics(name)
+		log.Printf("scan: cluster %s removed", name)
+	}
+
+	names := make([]string, 0, len(dirs))
+	for n := range dirs {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		s.scanCluster(dirs[n].Path, n)
+	}
+	s.mu.RLock()
+	clustersTotal.Set(float64(len(s.cache)))
+	s.mu.RUnlock()
+	s.updateLabMetrics()
 }
 
 func (s *Server) scanCluster(path, name string) {
@@ -331,6 +407,9 @@ func (s *Server) scanCluster(path, name string) {
 
 // ── file watcher ──────────────────────────────────────────────────────────────
 
+// watch rescans everything (debounced) when anything changes in root, a
+// directory on the way to a cluster, or a cluster directory. fsnotify is not
+// recursive, so the watched set is refreshed after each rescan.
 func (s *Server) watch() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -339,28 +418,28 @@ func (s *Server) watch() {
 	}
 	defer func() { _ = watcher.Close() }()
 
-	if err := watcher.Add(s.root); err != nil {
-		log.Printf("fsnotify add: %v", err)
-		return
+	addWatches := func() {
+		for _, d := range s.watchDirs() {
+			if err := watcher.Add(d); err != nil {
+				log.Printf("fsnotify add %s: %v", d, err)
+			}
+		}
 	}
+	addWatches()
 
-	debounce := make(map[string]*time.Timer)
+	var debounce *time.Timer
 	for {
 		select {
-		case event, ok := <-watcher.Events:
+		case _, ok := <-watcher.Events:
 			if !ok {
 				return
 			}
-			dir := filepath.Dir(event.Name)
-			if dir == s.root {
-				dir = event.Name
+			if debounce != nil {
+				debounce.Stop()
 			}
-			name := filepath.Base(dir)
-			if t, exists := debounce[name]; exists {
-				t.Stop()
-			}
-			debounce[name] = time.AfterFunc(500*time.Millisecond, func() {
-				s.scanCluster(dir, name)
+			debounce = time.AfterFunc(500*time.Millisecond, func() {
+				s.scanAll()
+				addWatches()
 			})
 		case err, ok := <-watcher.Errors:
 			if !ok {
@@ -369,6 +448,29 @@ func (s *Server) watch() {
 			log.Printf("fsnotify error: %v", err)
 		}
 	}
+}
+
+// watchDirs returns root, every cluster directory and the directories
+// between them.
+func (s *Server) watchDirs() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	root := filepath.Clean(s.root)
+	set := map[string]bool{root: true}
+	for _, d := range s.dirs {
+		for p := filepath.Clean(d.Path); p != root && strings.HasPrefix(p, root); p = filepath.Dir(p) {
+			set[p] = true
+			if filepath.Dir(p) == p {
+				break
+			}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for p := range set {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ── HTTP handlers ─────────────────────────────────────────────────────────────
@@ -425,6 +527,9 @@ func (s *Server) handleAPIclusters(w http.ResponseWriter, _ *http.Request) {
 		}
 		if errMsg, ok := s.scanErrs[name]; ok {
 			cs.ScanError = errMsg
+		}
+		if d, ok := s.dirs[name]; ok {
+			cs.Lab = d.Lab
 		}
 		if p, ok := s.cache[name]; ok {
 			cs.Tech = p.Technology

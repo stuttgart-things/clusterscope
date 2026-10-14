@@ -54,6 +54,16 @@ var (
 		Help: "1 if the GitOps controller reports the node ready while its workloads or HelmReleases are not, else 0.",
 	}, []string{"cluster", "app"})
 
+	labFindings = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "clusterscope_lab_findings",
+		Help: "Number of lab view findings (desired vs. actual mismatches) per lab, severity and kind.",
+	}, []string{"lab", "severity", "kind"})
+
+	clusterInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "clusterscope_cluster_info",
+		Help: "Always 1; maps a cluster to its lab. managed=false for clusters with a kubeconfig but no cluster directory.",
+	}, []string{"cluster", "lab", "tech", "managed"})
+
 	scanErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "clusterscope_scan_errors_total",
 		Help: "Total number of cluster scan errors.",
@@ -83,4 +93,15 @@ func updateWorkloadMetrics(cluster string, p *graph.ClusterProfile) {
 		}
 		appGitOpsDrift.WithLabelValues(cluster, n.ID).Set(drift)
 	}
+}
+
+// deleteClusterMetrics removes all per-cluster series of a removed cluster.
+func deleteClusterMetrics(cluster string) {
+	l := prometheus.Labels{"cluster": cluster}
+	clusterNodesTotal.DeletePartialMatch(l)
+	clusterAppsTotal.DeletePartialMatch(l)
+	clusterReachable.DeletePartialMatch(l)
+	httprouteAccepted.DeletePartialMatch(l)
+	appWorkloadStatus.DeletePartialMatch(l)
+	appGitOpsDrift.DeletePartialMatch(l)
 }

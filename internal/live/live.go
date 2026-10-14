@@ -114,7 +114,7 @@ var (
 // enrichFlux applies Kustomization and source status and returns the managed
 // objects per node (Kustomization inventories; the FluxInstance inventory for
 // the "sync-root" node).
-func enrichFlux(profile *graph.ClusterProfile, client dynamic.Interface) map[string][]objRef {
+func enrichFlux(profile *graph.ClusterProfile, client dynamic.Interface) (map[string][]objRef, []liveApp) {
 	merged := make(map[string]NodeStatus)
 	ks, err := listItems(client, gvrKustomizations)
 	if err != nil {
@@ -139,14 +139,53 @@ func enrichFlux(profile *graph.ClusterProfile, client dynamic.Interface) map[str
 		}
 	}
 	applyToProfile(profile, merged)
-	return members
+	if err != nil {
+		return members, nil // unknown, not "nothing deployed"
+	}
+	return members, appsOf(ks, "Kustomization")
+}
+
+// liveApp is a Kustomization / Application found in the cluster.
+type liveApp struct {
+	ref objRef
+	// managed is set when another GitOps object created it (parent
+	// Kustomization, HelmRelease, FluxInstance, Argo CD app-of-apps or
+	// ApplicationSet) — it is in Git, just not in this cluster directory.
+	managed bool
+}
+
+// managerLabels mark objects applied by a GitOps controller.
+var managerLabels = []string{
+	"kustomize.toolkit.fluxcd.io/name",
+	"helm.toolkit.fluxcd.io/name",
+	"fluxcd.controlplane.io/name",
+	"app.kubernetes.io/instance", // Argo CD default tracking label
+}
+
+// appsOf returns the listed Kustomizations / Applications.
+func appsOf(items []unstructured.Unstructured, kind string) []liveApp {
+	out := make([]liveApp, 0, len(items))
+	for _, it := range items {
+		a := liveApp{ref: objRef{Kind: kind, Namespace: it.GetNamespace(), Name: it.GetName()}}
+		labels := it.GetLabels()
+		for _, l := range managerLabels {
+			if labels[l] != "" {
+				a.managed = true
+			}
+		}
+		if it.GetAnnotations()["argocd.argoproj.io/tracking-id"] != "" || len(it.GetOwnerReferences()) > 0 {
+			a.managed = true
+		}
+		out = append(out, a)
+	}
+	return out
 }
 
 // ── ArgoCD enrichment ─────────────────────────────────────────────────────────
 
 // enrichArgoCD applies Application health/sync and returns each
 // Application's managed resources.
-func enrichArgoCD(profile *graph.ClusterProfile, client dynamic.Interface) map[string][]objRef {
+func enrichArgoCD(profile *graph.ClusterProfile, client dynamic.Interface) (map[string][]objRef, []liveApp) {
 	items, err := listItems(client, gvrArgoApplications)
 	if err != nil {
 		log.Printf("live: %v", err)
@@ -159,7 +198,10 @@ func enrichArgoCD(profile *graph.ClusterProfile, client dynamic.Interface) map[s
 		}
 	}
 	applyToProfile(profile, statuses)
-	return argoRefs(items)
+	if err != nil {
+		return nil, nil
+	}
+	return argoRefs(items), appsOf(items, "Application")
 }
 
 // ── fetcher helpers ───────────────────────────────────────────────────────────

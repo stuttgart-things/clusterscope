@@ -29,6 +29,9 @@ var diffTemplate string
 //go:embed endpoints.html
 var endpointsPage string
 
+//go:embed lab.html
+var labPage string
+
 // IndexCluster is one row in the multi-cluster index page.
 type IndexCluster struct {
 	Name    string
@@ -369,4 +372,11 @@ func WriteDiffHTML(w io.Writer, gd diff.GraphDiff, base, head *graph.ClusterProf
 		return err
 	}
 	return tmpl.Execute(w, td)
+}
+
+// WriteLab writes the lab dashboard page. It is static and loads its data
+// from /api/lab.
+func WriteLab(w io.Writer) error {
+	_, err := io.WriteString(w, labPage)
+	return err
 }

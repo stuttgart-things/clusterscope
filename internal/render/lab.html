@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>clusterscope · lab</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    padding: 1.25rem 1.5rem 2rem;
+    font-size: 0.82rem;
+  }
+  h2 { font-size: 1rem; font-weight: 700; color: #e2e8f0; letter-spacing: -0.01em; }
+  h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #4a5568; font-weight: 600; margin: 1.5rem 0 0.6rem; }
+  .muted { color: #64748b; }
+  .top { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .top .updated { font-size: 0.72rem; color: #4a5568; margin-left: auto; }
+
+  .lab { border: 1px solid #2d3148; border-radius: 10px; padding: 1rem 1.1rem 1.2rem; margin-bottom: 1.25rem; background: #11141c; }
+  .lab-head { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.8rem; }
+  .lab-head h2 { font-size: 1.05rem; }
+
+  .summary { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .stat { background: #141720; border: 1px solid #2d3148; border-radius: 8px; padding: 0.55rem 0.8rem; min-width: 110px; }
+  .stat .v { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 0.68rem; color: #64748b; margin-top: 0.1rem; }
+  .stat.bad .v { color: #f85149; }
+  .stat.warn .v { color: #f0883e; }
+  .stat.good .v { color: #3fb950; }
+
+  .controls { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.75rem; }
+  .controls input[type=search], .controls select {
+    background: #1a1d27; border: 1px solid #2d3148; border-radius: 6px;
+    padding: 0.4rem 0.6rem; font-size: 0.8rem; color: #e2e8f0; outline: none;
+  }
+  .controls input[type=search] { width: 280px; max-width: 100%; }
+  .controls input[type=search]:focus, .controls select:focus { border-color: #58a6ff; }
+  .controls .count { color: #4a5568; font-size: 0.72rem; margin-left: auto; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid #2d3148; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 600; padding: 0.55rem 0.7rem; background: #141720; border-bottom: 1px solid #2d3148; white-space: nowrap; }
+  td { padding: 0.5rem 0.7rem; border-bottom: 1px solid #1e2235; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr.sev-error td:first-child { box-shadow: inset 3px 0 0 #f85149; }
+  tr.sev-warning td:first-child { box-shadow: inset 3px 0 0 #f0883e; }
+  a { color: #58a6ff; text-decoration: none; cursor: pointer; }
+  a:hover { text-decoration: underline; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; }
+  .sub { display: block; font-size: 0.7rem; color: #64748b; margin-top: 0.1rem; }
+  .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pill { display: inline-block; font-size: 0.65rem; padding: 0.08rem 0.45rem; border-radius: 9999px; margin: 0 0.2rem 0.2rem 0; white-space: nowrap; }
+  .pill.ok { background: #12301d; color: #3fb950; }
+  .pill.bad { background: #3a1618; color: #f85149; }
+  .pill.warn { background: #3a2614; color: #f0883e; }
+  .pill.unk { background: #1e2235; color: #94a3b8; }
+  .pill.info { background: #1e2a45; color: #60a5fa; }
+  .msg { color: #94a3b8; word-break: break-word; }
+  tr.other td { opacity: 0.55; }
+  .empty { padding: 1.5rem; text-align: center; color: #4a5568; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h2>Lab overview</h2>
+  <span class="muted">desired (Git) · GitOps status · actual state</span>
+  <span class="updated" id="updated"></span>
+</div>
+
+<div class="controls">
+  <input type="search" id="q" placeholder="Filter cluster, app, message…" aria-label="Filter">
+  <select id="lab" aria-label="Lab"><option value="">All labs</option></select>
+  <select id="sev" aria-label="Severity">
+    <option value="">All findings</option>
+    <option value="error">Errors</option>
+    <option value="warning">Errors + warnings</option>
+  </select>
+  <span class="count" id="count"></span>
+</div>
+
+<div id="labs"><div class="empty">Loading…</div></div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const els = { q: document.getElementById("q"), lab: document.getElementById("lab"), sev: document.getElementById("sev") };
+els.q.value = params.get("q") || "";
+els.sev.value = params.get("sev") || "";
+let data = null;
+
+const KIND_LABEL = {
+  "unreachable": "unreachable", "no-kubeconfig": "no kubeconfig", "unmanaged-cluster": "not in Git",
+  "duplicate-name": "duplicate name", "scan-error": "scan error", "workloads-unreadable": "workloads unreadable",
+  "gitops-failed": "GitOps failed", "drift": "drift", "workloads-down": "workloads down",
+  "workloads-degraded": "workloads degraded", "not-deployed": "not deployed", "not-in-git": "not in Git",
+  "route-not-accepted": "route", "endpoint-down": "endpoint down",
+};
+
+function esc(s) {
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+function clusterLink(name, managed) {
+  if (!managed) return `<span class="mono">${esc(name)}</span>`;
+  return `<a class="mono" data-cluster="${esc(name)}">${esc(name)}</a>`;
+}
+
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[data-cluster]");
+  if (!a) return;
+  e.preventDefault();
+  const name = a.dataset.cluster;
+  if (window.parent !== window && typeof window.parent.loadCluster === "function") window.parent.loadCluster(name);
+  else location.href = "/clusters/" + encodeURIComponent(name);
+});
+
+function stat(v, l, cls) {
+  return `<div class="stat ${cls||""}"><div class="v">${v}</div><div class="l">${esc(l)}</div></div>`;
+}
+
+function reachPill(c) {
+  if (!data.live) return "";
+  const r = c.reachability;
+  if (r === "reachable") return `<span class="pill ok">reachable</span>`;
+  if (r === "unreachable") return `<span class="pill bad" title="${esc(c.error)}">unreachable</span>`;
+  if (r === "unconfigured") return `<span class="pill unk" title="${esc(c.error)}">no kubeconfig</span>`;
+  return `<span class="pill unk">–</span>`;
+}
+
+function countPills(m, order, cls) {
+  if (!m) return `<span class="muted">–</span>`;
+  return order.filter(k => m[k]).map(k => `<span class="pill ${cls[k]||"unk"}">${m[k]} ${esc(k)}</span>`).join("");
+}
+
+function sevVisible(s) {
+  const f = els.sev.value;
+  if (!f) return true;
+  if (f === "error") return s === "error";
+  return s !== "info";
+}
+
+function render() {
+  const q = els.q.value.trim().toLowerCase();
+  const labFilter = els.lab.value;
+  let shown = 0, total = 0;
+  const out = [];
+  for (const lab of data.labs) {
+    if (labFilter && lab.name !== labFilter) continue;
+    const s = lab.summary;
+    const routesBad = s.routes - s.routesOK;
+    let html = `<section class="lab"><div class="lab-head"><h2>${esc(lab.name)}</h2>
+      <span class="muted">${s.clusters} cluster${s.clusters === 1 ? "" : "s"}</span></div>
+      <div class="summary">
+        ${data.live ? stat(`${s.reachable}/${s.clusters}`, "clusters reachable", s.reachable < s.clusters ? "warn" : "good") : stat(s.clusters, "clusters")}
+        ${stat(s.apps, "apps (Git)")}
+        ${data.live ? stat(s.healthy, "nodes healthy", "good") : ""}
+        ${data.live ? stat(s.degraded + s.down, "degraded / down", s.down ? "bad" : s.degraded ? "warn" : "good") : ""}
+        ${data.live ? stat(s.drift, "GitOps drift", s.drift ? "bad" : "good") : ""}
+        ${data.live ? stat(`${s.routesOK}/${s.routes}`, "endpoints OK", routesBad ? "bad" : "good") : ""}
+        ${stat(s.errors, "errors", s.errors ? "bad" : "good")}
+        ${stat(s.warnings, "warnings", s.warnings ? "warn" : "good")}
+      </div>`;
+
+    const match = c => !q || c.name.toLowerCase().includes(q) || (c.path || "").toLowerCase().includes(q);
+    const clusters = lab.clusters.filter(c => !c.noGitOps && match(c));
+    const other = lab.clusters.filter(c => c.noGitOps && match(c));
+    html += `<h3>Clusters</h3><div class="table-wrap"><table><thead><tr>
+      <th>Cluster</th><th>Reachability</th><th>Apps</th><th>GitOps</th><th>Workloads</th><th>Endpoints</th><th>Findings</th>
+      </tr></thead><tbody>`;
+    html += clusters.length ? clusters.map(c => `<tr>
+        <td>${clusterLink(c.name, c.managed)}<span class="sub">${c.managed ? esc(c.path) : "kubeconfig only — no cluster directory"}</span></td>
+        <td>${reachPill(c)}${c.tech ? `<span class="pill info">${esc(c.tech)}</span>` : ""}</td>
+        <td class="num">${c.managed ? c.apps : "–"}${c.nested ? `<span class="sub" title="Kustomizations / Applications created by other GitOps objects">+${c.nested} nested</span>` : ""}</td>
+        <td>${countPills(c.gitops, ["ready","progressing","failed","unknown"], {ready:"ok",progressing:"warn",failed:"bad"})}</td>
+        <td>${countPills(c.workloads, ["healthy","degraded","down"], {healthy:"ok",degraded:"warn",down:"bad"})}${c.drift ? `<span class="pill bad">${c.drift} drift</span>` : ""}</td>
+        <td class="num">${c.routes ? `${c.routesOK}/${c.routes}` : `<span class="muted">–</span>`}</td>
+        <td class="num">${c.findings ? `<span class="pill ${c.findings ? "warn" : ""}">${c.findings}</span>` : `<span class="pill ok">0</span>`}</td>
+      </tr>`).join("") : `<tr><td colspan="7" class="empty">No clusters match.</td></tr>`;
+    html += other.map(c => `<tr class="other">
+        <td><span class="mono muted">${esc(c.name)}</span><span class="sub">${esc(c.path)}</span></td>
+        <td colspan="6" class="muted">no GitOps objects and no reachable cluster — not counted as a cluster</td>
+      </tr>`).join("");
+    html += `</tbody></table></div>`;
+
+    total += lab.findings.length;
+    const findings = lab.findings.filter(f => sevVisible(f.severity) &&
+      (!q || [f.cluster, f.object, f.message, f.kind].join(" ").toLowerCase().includes(q)));
+    shown += findings.length;
+    html += `<h3>Findings</h3><div class="table-wrap"><table><thead><tr>
+      <th>Severity</th><th>Kind</th><th>Cluster</th><th>Object</th><th>Details</th></tr></thead><tbody>`;
+    html += findings.length ? findings.map(f => `<tr class="sev-${esc(f.severity)}">
+        <td><span class="pill ${f.severity === "error" ? "bad" : f.severity === "warning" ? "warn" : "info"}">${esc(f.severity)}</span></td>
+        <td>${esc(KIND_LABEL[f.kind] || f.kind)}</td>
+        <td>${clusterLink(f.cluster, f.kind !== "unmanaged-cluster" && f.kind !== "duplicate-name")}</td>
+        <td class="mono">${esc(f.object || "")}</td>
+        <td class="msg">${esc(f.message)}</td>
+      </tr>`).join("") : `<tr><td colspan="5" class="empty">${lab.findings.length ? "No findings match the filter." : "No findings — desired and actual state match."}</td></tr>`;
+    html += `</tbody></table></div></section>`;
+    out.push(html);
+  }
+  document.getElementById("labs").innerHTML = out.join("") || `<div class="empty">No clusters found.</div>`;
+  document.getElementById("count").textContent = `${shown} of ${total} findings`;
+
+  const p = new URLSearchParams();
+  if (els.q.value) p.set("q", els.q.value);
+  if (els.lab.value) p.set("lab", els.lab.value);
+  if (els.sev.value) p.set("sev", els.sev.value);
+  history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p : ""));
+}
+
+function load() {
+  fetch("/api/lab").then(r => r.json()).then(d => {
+    data = d;
+    const want = els.lab.value || params.get("lab") || "";
+    els.lab.innerHTML = `<option value="">All labs</option>` +
+      d.labs.map(l => `<option value="${esc(l.name)}">${esc(l.name)}</option>`).join("");
+    els.lab.value = d.labs.some(l => l.name === want) ? want : "";
+    document.getElementById("updated").textContent = "updated " + new Date(d.generatedAt).toLocaleTimeString() +
+      (d.live ? "" : " · live mode off — Git only");
+    render();
+  }).catch(e => {
+    document.getElementById("labs").innerHTML = `<div class="empty">Failed to load lab view: ${esc(e)}</div>`;
+  });
+}
+
+els.q.addEventListener("input", () => data && render());
+els.lab.addEventListener("change", () => data && render());
+els.sev.addEventListener("change", () => data && render());
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

@@ -58,7 +58,11 @@ type LabCluster struct {
 	// reachable cluster (e.g. Crossplane claims next to the cluster dirs);
 	// it is listed but not counted as a cluster.
 	NoGitOps bool `json:"noGitOps,omitempty"`
-	Findings int  `json:"findings"`
+	// NoGitOpsYet marks a reachable cluster whose directory has no GitOps
+	// objects and which runs no Flux / Argo CD objects either (e.g. k3s set
+	// up, Flux bootstrap still to come).
+	NoGitOpsYet bool `json:"noGitOpsYet,omitempty"`
+	Findings    int  `json:"findings"`
 }
 
 // LabSummary aggregates a lab.
@@ -145,8 +149,8 @@ func (s *Server) labSnapshot() LabResponse {
 	for _, d := range s.duplicates {
 		lab := labOf(d.Lab)
 		lab.Findings = append(lab.Findings, Finding{
-			Severity: SevWarning, Kind: "duplicate-name", Cluster: d.Name, Object: s.relPath(d.Path),
-			Message: fmt.Sprintf("cluster name already used by %s — directory not scanned", s.relPath(s.dirs[d.Name].Path)),
+			Severity: SevWarning, Kind: "duplicate-name", Cluster: d.Name, Object: s.displayPath(d),
+			Message: fmt.Sprintf("cluster name already used by %s — directory not scanned", s.displayPath(s.dirs[d.Name])),
 		})
 	}
 
@@ -197,7 +201,7 @@ func (s *Server) labSnapshot() LabResponse {
 // labCluster builds the row and findings of a cluster with a directory.
 // The caller holds s.mu.
 func (s *Server) labCluster(name string, dir scan.ClusterDir, routes []RouteRow) (LabCluster, []Finding) {
-	lc := LabCluster{Name: name, Managed: true, Path: s.relPath(dir.Path)}
+	lc := LabCluster{Name: name, Managed: true, Path: s.displayPath(dir)}
 	var fs []Finding
 	add := func(sev, kind, object, msg string) {
 		fs = append(fs, Finding{Severity: sev, Kind: kind, Cluster: name, Object: object, Message: msg})
@@ -235,6 +239,10 @@ func (s *Server) labCluster(name string, dir scan.ClusterDir, routes []RouteRow)
 		}
 		for _, n := range st.NotInGit {
 			add(SevInfo, "not-in-git", n, "in the cluster, but not in the cluster directory")
+		}
+		if p != nil && len(p.Graph.Nodes) == 0 && st.Reachability == live.Reachable && len(st.NotInGit)+len(st.Nested) == 0 {
+			lc.NoGitOpsYet = true
+			add(SevInfo, "no-gitops", "", "cluster runs, but no GitOps yet: no Flux / Argo CD objects in the directory or in the cluster")
 		}
 	}
 
@@ -361,11 +369,17 @@ func (s *Server) unmanagedLab() string {
 	return lab
 }
 
-func (s *Server) relPath(p string) string {
-	if rel, err := filepath.Rel(s.root, p); err == nil && !strings.HasPrefix(rel, "..") {
-		return rel
+// displayPath is the cluster directory as shown: [<root name>/]<relative>.
+func (s *Server) displayPath(d scan.ClusterDir) string {
+	if d.Rel != "" {
+		return d.Rel
 	}
-	return p
+	for _, r := range s.cfg.Roots {
+		if rel, err := filepath.Rel(r.Path, d.Path); err == nil && !strings.HasPrefix(rel, "..") {
+			return rel
+		}
+	}
+	return d.Path
 }
 
 // updateLabMetrics refreshes the lab-level series.

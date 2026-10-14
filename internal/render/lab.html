@@ -95,7 +95,7 @@ const KIND_LABEL = {
   "duplicate-name": "duplicate name", "scan-error": "scan error", "workloads-unreadable": "workloads unreadable",
   "gitops-failed": "GitOps failed", "drift": "drift", "workloads-down": "workloads down",
   "workloads-degraded": "workloads degraded", "not-deployed": "not deployed", "not-in-git": "not in Git",
-  "route-not-accepted": "route", "endpoint-down": "endpoint down",
+  "route-not-accepted": "route", "endpoint-down": "endpoint down", "no-gitops": "no GitOps yet",
 };
 
 function esc(s) {
@@ -173,7 +173,7 @@ function render() {
         <td>${clusterLink(c.name, c.managed)}<span class="sub">${c.managed ? esc(c.path) : "kubeconfig only — no cluster directory"}</span></td>
         <td>${reachPill(c)}${c.tech ? `<span class="pill info">${esc(c.tech)}</span>` : ""}</td>
         <td class="num">${c.managed ? c.apps : "–"}${c.nested ? `<span class="sub" title="Kustomizations / Applications created by other GitOps objects">+${c.nested} nested</span>` : ""}</td>
-        <td>${countPills(c.gitops, ["ready","progressing","failed","unknown"], {ready:"ok",progressing:"warn",failed:"bad"})}</td>
+        <td>${c.noGitOpsYet ? `<span class="pill unk" title="cluster runs, no Flux / Argo CD yet">no GitOps yet</span>` : countPills(c.gitops, ["ready","progressing","failed","unknown"], {ready:"ok",progressing:"warn",failed:"bad"})}</td>
         <td>${countPills(c.workloads, ["healthy","degraded","down"], {healthy:"ok",degraded:"warn",down:"bad"})}${c.drift ? `<span class="pill bad">${c.drift} drift</span>` : ""}</td>
         <td class="num">${c.routes ? `${c.routesOK}/${c.routes}` : `<span class="muted">–</span>`}</td>
         <td class="num">${c.findings ? `<span class="pill ${c.findings ? "warn" : ""}">${c.findings}</span>` : `<span class="pill ok">0</span>`}</td>

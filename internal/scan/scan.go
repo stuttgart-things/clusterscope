@@ -2,6 +2,7 @@
 package scan
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 	"github.com/stuttgart-things/clusterscope/pkg/argocd"
 	"github.com/stuttgart-things/clusterscope/pkg/flux"
+	"sigs.k8s.io/yaml"
 )
 
 // ClusterEntry holds a parsed cluster profile together with scan metadata.
@@ -125,12 +127,68 @@ func HasYAML(dir string) bool {
 
 // ClusterDir is a discovered cluster directory.
 type ClusterDir struct {
-	Name string // directory name, used as cluster name
+	Name string // cluster name: the directory name unless overridden
+	Dir  string // directory name
 	Path string
+	Rel  string // display path: [<root name>/]<path relative to the root>
 	Lab  string
-	// Duplicate is set when another directory with the same name was found
-	// first (in path order); duplicates are not scanned.
+	// Duplicate is set when another directory with the same cluster name was
+	// found first (in root and path order); duplicates are not scanned.
 	Duplicate bool
+}
+
+// RootSpec is one directory tree to discover clusters in (typically one
+// git-synced repository).
+type RootSpec struct {
+	Path string `json:"path"`
+	// Name prefixes the display path of its clusters (e.g. the repo name).
+	Name string `json:"name,omitempty"`
+	// Lab is the lab of its clusters unless overridden per cluster.
+	Lab string `json:"lab,omitempty"`
+	// Include limits the root to these directory names (default: all).
+	Include []string `json:"include,omitempty"`
+}
+
+// Override sets the cluster name and/or lab of one cluster directory, for
+// repos whose directory names differ from the cluster names.
+type Override struct {
+	Name string `json:"name,omitempty"`
+	Lab  string `json:"lab,omitempty"`
+}
+
+// Config is the -config file: several roots plus per-directory overrides.
+//
+//	roots:
+//	  - path: /data/stuttgart-things/clusters/labul
+//	  - path: /data/harvester/clusters
+//	    name: harvester
+//	    include: [edge-test2]
+//	clusters:
+//	  edge-test2: {name: edge-tt-test2, lab: labul}
+type Config struct {
+	Roots    []RootSpec          `json:"roots"`
+	Clusters map[string]Override `json:"clusters,omitempty"`
+}
+
+// LoadConfig reads a -config file (YAML or JSON).
+func LoadConfig(path string) (Config, error) {
+	var c Config
+	raw, err := os.ReadFile(path) //nolint:gosec
+	if err != nil {
+		return c, err
+	}
+	if err := yaml.Unmarshal(raw, &c); err != nil {
+		return c, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if len(c.Roots) == 0 {
+		return c, fmt.Errorf("%s: no roots", path)
+	}
+	for i, r := range c.Roots {
+		if r.Path == "" {
+			return c, fmt.Errorf("%s: roots[%d] has no path", path, i)
+		}
+	}
+	return c, nil
 }
 
 // MaxDepth limits how deep Discover descends below root.
@@ -139,28 +197,75 @@ const MaxDepth = 4
 // DefaultLab is used when no lab can be derived from the path.
 const DefaultLab = "default"
 
-// Discover finds cluster directories below root:
+// Discover finds the cluster directories below one root; see DiscoverAll.
+func Discover(root, lab string) []ClusterDir {
+	return DiscoverAll(Config{Roots: []RootSpec{{Path: root}}}, lab)
+}
+
+// DiscoverAll finds the cluster directories of every root, in root order.
+// Per root:
 //
-//   - root's immediate subdirectories contain YAML → each of them is a
-//     cluster (flat layout, unchanged behaviour)
-//   - root itself contains YAML → root is the only cluster
+//   - its immediate subdirectories contain YAML → each of them is a
+//     cluster (flat layout)
+//   - the root itself contains YAML → it is the only cluster
 //   - otherwise directories are searched recursively (up to MaxDepth): a
 //     directory with YAML files is a cluster, one without is descended into.
 //     This covers repo layouts like clusters/<lab>/<platform>/<cluster>.
 //
-// The lab of a cluster is the path segment after a "clusters" segment when a
-// further segment follows before the cluster directory
-// (…/clusters/labul/vsphere/platform-sthings → labul), else lab (or
+// A missing root is skipped (e.g. not yet cloned by git-sync).
+//
+// Lab, in order: the cluster's override, the root's lab, the path segment
+// after "clusters" when a further segment follows before the cluster
+// directory (…/clusters/labul/vsphere/platform-sthings → labul), lab (or
 // DefaultLab when empty). Hidden directories are skipped.
-func Discover(root, lab string) []ClusterDir {
+func DiscoverAll(cfg Config, lab string) []ClusterDir {
 	if lab == "" {
 		lab = DefaultLab
 	}
-	abs, err := filepath.Abs(root)
-	if err != nil {
-		abs = root
+	seen := make(map[string]bool)
+	var out []ClusterDir
+	for _, root := range cfg.Roots {
+		include := make(map[string]bool, len(root.Include))
+		for _, n := range root.Include {
+			include[n] = true
+		}
+		fallback := lab
+		abs, err := filepath.Abs(root.Path)
+		if err != nil {
+			abs = root.Path
+		}
+		for _, d := range clusterDirs(root.Path) {
+			dir := filepath.Base(d)
+			if len(include) > 0 && !include[dir] {
+				continue
+			}
+			rel, _ := filepath.Rel(root.Path, d)
+			cd := ClusterDir{Name: dir, Dir: dir, Path: d, Rel: rel}
+			if root.Name != "" {
+				cd.Rel = root.Name + "/" + rel
+			}
+			ov := cfg.Clusters[dir]
+			switch {
+			case ov.Lab != "":
+				cd.Lab = ov.Lab
+			case root.Lab != "":
+				cd.Lab = root.Lab
+			default:
+				cd.Lab = labFromPath(filepath.Join(abs, rel), fallback)
+			}
+			if ov.Name != "" {
+				cd.Name = ov.Name
+			}
+			cd.Duplicate = seen[cd.Name]
+			seen[cd.Name] = true
+			out = append(out, cd)
+		}
 	}
+	return out
+}
 
+// clusterDirs returns the cluster directories below root, sorted.
+func clusterDirs(root string) []string {
 	subdirs := visibleSubdirs(root)
 	flat := false
 	for _, d := range subdirs {
@@ -191,17 +296,7 @@ func Discover(root, lab string) []ClusterDir {
 		walk(root, 1)
 	}
 	sort.Strings(dirs)
-
-	seen := make(map[string]bool)
-	out := make([]ClusterDir, 0, len(dirs))
-	for _, d := range dirs {
-		name := filepath.Base(d)
-		rel, _ := filepath.Rel(root, d)
-		cd := ClusterDir{Name: name, Path: d, Lab: labFromPath(filepath.Join(abs, rel), lab), Duplicate: seen[name]}
-		seen[name] = true
-		out = append(out, cd)
-	}
-	return out
+	return dirs
 }
 
 // labFromPath returns the segment after the last "clusters" segment if at

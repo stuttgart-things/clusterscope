@@ -47,6 +47,7 @@ func main() {
 	selfCluster := flag.String("self-cluster", "", "cluster clusterscope runs in; with -kubeconfig-dir/-kubeconfig-map only this cluster uses -kubeconfig / in-cluster")
 	probeEndpoints := flag.Bool("probe", false, "probe every HTTPRoute URL (DNS, TLS, HTTP) on each live refresh (used with -live)")
 	probeTimeout := flag.Duration("probe-timeout", 5*time.Second, "per-URL probe timeout (used with -probe)")
+	configFile := flag.String("config", "", "YAML/JSON file with several roots (repos) and per-directory cluster name / lab overrides; replaces -root (used with -serve)")
 	labName := flag.String("lab", "", "lab name for clusters whose path does not contain clusters/<lab>/…/<cluster> (default \"default\", used with -serve)")
 	refreshSeconds := flag.Int("refresh", 30, "live status refresh interval in seconds (used with -live)")
 	previewRoot := flag.String("preview-root", "", "directory containing PR head ref cluster files for diff preview (used with -serve)")
@@ -124,6 +125,15 @@ Examples:
 				os.Exit(1)
 			}
 		}
+		var scanCfg *scan.Config
+		if *configFile != "" {
+			c, err := scan.LoadConfig(*configFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "config: %v\n", err)
+				os.Exit(1)
+			}
+			scanCfg = &c
+		}
 		opts := serve.Options{
 			Live:           *liveMode,
 			Kubeconfig:     *kubeconfig,
@@ -135,6 +145,7 @@ Examples:
 			RefreshSeconds: *refreshSeconds,
 			PreviewRoot:    *previewRoot,
 			Lab:            *labName,
+			Config:         scanCfg,
 		}
 		if err := serve.Start(*serveAddr, *root, opts); err != nil {
 			fmt.Fprintf(os.Stderr, "serve error: %v\n", err)

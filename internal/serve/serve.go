@@ -61,6 +61,9 @@ type Options struct {
 	// Lab is the lab name for clusters whose path does not name one
 	// (…/clusters/<lab>/…/<cluster>). Defaults to "default".
 	Lab string
+	// Config replaces the single root: several roots (repos) plus
+	// per-directory cluster name / lab overrides (-config).
+	Config *scan.Config
 }
 
 // ClusterSummary is the JSON payload returned by GET /api/clusters.
@@ -86,7 +89,7 @@ type ClusterSummary struct {
 
 // Server holds the HTTP mux and cluster cache.
 type Server struct {
-	root      string
+	cfg       scan.Config // roots (repos) and per-directory overrides
 	opts      Options
 	mu        sync.RWMutex
 	cache     map[string]*graph.ClusterProfile
@@ -123,10 +126,18 @@ type Server struct {
 	cloner *preview.Cloner
 }
 
-// Start starts the HTTP server on addr, scanning root for cluster directories.
+// Start starts the HTTP server on addr, scanning root (or opts.Config's
+// roots) for cluster directories. A root that does not exist yet — e.g. not
+// yet cloned by git-sync — is picked up as soon as it appears.
 func Start(addr, root string, opts Options) error {
-	if _, err := os.Stat(root); err != nil {
-		return err
+	cfg := scan.Config{Roots: []scan.RootSpec{{Path: root}}}
+	if opts.Config != nil {
+		cfg = *opts.Config
+	}
+	for _, r := range cfg.Roots {
+		if _, err := os.Stat(r.Path); err != nil {
+			log.Printf("root %s not there yet (%v) — scanned once it appears", r.Path, err)
+		}
 	}
 
 	if opts.Live && opts.RefreshSeconds <= 0 {
@@ -134,7 +145,7 @@ func Start(addr, root string, opts Options) error {
 	}
 
 	s := &Server{
-		root:         root,
+		cfg:          cfg,
 		opts:         opts,
 		cache:        make(map[string]*graph.ClusterProfile),
 		scanned:      make(map[string]time.Time),
@@ -198,7 +209,11 @@ func Start(addr, root string, opts Options) error {
 	mux.HandleFunc("/api/preview/", s.handleAPIpreview)
 	mux.HandleFunc("/preview/", s.handlePreview)
 
-	log.Printf("clusterscope serving on %s  root=%s", addr, root)
+	roots := make([]string, 0, len(cfg.Roots))
+	for _, r := range cfg.Roots {
+		roots = append(roots, r.Path)
+	}
+	log.Printf("clusterscope serving on %s  roots=%s", addr, strings.Join(roots, ","))
 	return http.ListenAndServe(addr, mux) //nolint:gosec
 }
 
@@ -305,7 +320,7 @@ func (s *Server) scanAll() {
 
 	dirs := make(map[string]scan.ClusterDir)
 	var dups []scan.ClusterDir
-	for _, d := range scan.Discover(s.root, s.opts.Lab) {
+	for _, d := range scan.DiscoverAll(s.cfg, s.opts.Lab) {
 		if d.Duplicate {
 			log.Printf("scan: skipping %s — cluster name %q already used by %s", d.Path, d.Name, dirs[d.Name].Path)
 			dups = append(dups, d)
@@ -427,9 +442,27 @@ func (s *Server) watch() {
 	}
 	addWatches()
 
+	// fsnotify cannot watch a root that does not exist yet, and git-sync
+	// publishes a new checkout by swapping a symlink above the watched
+	// directories. So also rescan when a root appears or disappears, and
+	// every rescanEvery as a safety net.
+	rescan := func() {
+		s.scanAll()
+		addWatches()
+	}
+	present := s.rootsPresent()
+	tick := time.NewTicker(rootCheckEvery)
+	defer tick.Stop()
+	lastFull := time.Now()
+
 	var debounce *time.Timer
 	for {
 		select {
+		case <-tick.C:
+			if now := s.rootsPresent(); now != present || time.Since(lastFull) >= rescanEvery {
+				present, lastFull = now, time.Now()
+				rescan()
+			}
 		case _, ok := <-watcher.Events:
 			if !ok {
 				return
@@ -437,10 +470,7 @@ func (s *Server) watch() {
 			if debounce != nil {
 				debounce.Stop()
 			}
-			debounce = time.AfterFunc(500*time.Millisecond, func() {
-				s.scanAll()
-				addWatches()
-			})
+			debounce = time.AfterFunc(500*time.Millisecond, rescan)
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return
@@ -450,18 +480,48 @@ func (s *Server) watch() {
 	}
 }
 
-// watchDirs returns root, every cluster directory and the directories
-// between them.
+const (
+	rootCheckEvery = 15 * time.Second
+	rescanEvery    = 5 * time.Minute
+)
+
+// rootsPresent is a fingerprint of which roots exist and where they point.
+func (s *Server) rootsPresent() string {
+	var b strings.Builder
+	for _, r := range s.cfg.Roots {
+		target, err := filepath.EvalSymlinks(r.Path)
+		if err != nil {
+			target = "-"
+		}
+		b.WriteString(target + "\n")
+	}
+	return b.String()
+}
+
+// watchDirs returns every existing root, every cluster directory and the
+// directories between them.
 func (s *Server) watchDirs() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	root := filepath.Clean(s.root)
-	set := map[string]bool{root: true}
+	set := map[string]bool{}
+	var roots []string
+	for _, r := range s.cfg.Roots {
+		root := filepath.Clean(r.Path)
+		if _, err := os.Stat(root); err == nil {
+			set[root] = true
+			roots = append(roots, root)
+		}
+	}
 	for _, d := range s.dirs {
-		for p := filepath.Clean(d.Path); p != root && strings.HasPrefix(p, root); p = filepath.Dir(p) {
-			set[p] = true
-			if filepath.Dir(p) == p {
-				break
+		for _, root := range roots {
+			if !strings.HasPrefix(filepath.Clean(d.Path), root) {
+				continue
+			}
+			for p := filepath.Clean(d.Path); p != root && strings.HasPrefix(p, root); p = filepath.Dir(p) {
+				set[p] = true
+				if filepath.Dir(p) == p {
+					break
+				}
 			}
 		}
 	}

@@ -29,14 +29,16 @@ func labTestServer() *Server {
 		"infra": {Technology: "flux", Graph: graph.Graph{Nodes: []graph.Node{{ID: "apps", Type: "apps", Status: "unknown"}}}},
 		"dev":   {Technology: "argocd", Graph: graph.Graph{Nodes: []graph.Node{{ID: "shop", Type: "argoapp", Technology: "argocd", Status: "unknown"}}}},
 		"xrs":   {Technology: "flux"}, // claims next to the cluster dirs, no GitOps objects
+		"edge":  {Technology: "flux"}, // k3s set up, no Flux yet
 	}
 	s := newTestServer(profiles, map[string]string{}, true)
-	s.root = "/repo/clusters"
+	s.cfg = scan.Config{Roots: []scan.RootSpec{{Path: "/repo/clusters"}}}
 	s.dirs = map[string]scan.ClusterDir{
 		"platform": {Name: "platform", Path: "/repo/clusters/labul/vsphere/platform", Lab: "labul"},
 		"infra":    {Name: "infra", Path: "/repo/clusters/labul/vsphere/infra", Lab: "labul"},
 		"dev":      {Name: "dev", Path: "/repo/clusters/labda/vsphere/dev", Lab: "labda"},
 		"xrs":      {Name: "xrs", Path: "/repo/clusters/labda/vsphere/xrs", Lab: "labda"},
+		"edge":     {Name: "edge", Dir: "edge-test2", Path: "/harvester/clusters/edge-test2", Rel: "harvester/edge-test2", Lab: "labul"},
 	}
 	s.duplicates = []scan.ClusterDir{{Name: "dev", Path: "/repo/clusters/labul/vsphere/dev", Lab: "labul", Duplicate: true}}
 	s.liveStatus = map[string]live.ClusterStatus{
@@ -44,6 +46,7 @@ func labTestServer() *Server {
 		"infra":    {Reachability: live.Unreachable, Error: "i/o timeout"},
 		"dev":      {Reachability: live.Unconfigured, Error: "no kubeconfig for cluster"},
 		"xrs":      {Reachability: live.Unconfigured, Error: "no kubeconfig for cluster"},
+		"edge":     {Reachability: live.Reachable},
 	}
 	s.endpoints = map[string]endpointState{"platform": {ep: &live.Endpoints{GatewayAPI: true, Routes: []live.Route{
 		{Namespace: "vault", Name: "vault", URLs: []string{"https://vault.lab"}, Accepted: "True", ResolvedRefs: "True"},
@@ -79,6 +82,7 @@ func TestLabSnapshot(t *testing.T) {
 		"unreachable|infra|",
 		"unmanaged-cluster|edge-test|",
 		"duplicate-name|dev|labul/vsphere/dev",
+		"no-gitops|edge|",
 	} {
 		if _, ok := kinds[want]; !ok {
 			t.Errorf("missing finding %s in %+v", want, labul.Findings)
@@ -93,14 +97,20 @@ func TestLabSnapshot(t *testing.T) {
 	}
 
 	sm := labul.Summary
-	if sm.Clusters != 3 || sm.Unmanaged != 1 || sm.Reachable != 2 || sm.Drift != 1 || sm.Routes != 2 || sm.RoutesOK != 1 || sm.Healthy != 1 || sm.Degraded != 1 {
+	if sm.Clusters != 4 || sm.Unmanaged != 1 || sm.Reachable != 3 || sm.Drift != 1 || sm.Routes != 2 || sm.RoutesOK != 1 || sm.Healthy != 1 || sm.Degraded != 1 {
 		t.Errorf("summary: %+v", sm)
 	}
-	var platform LabCluster
+	var platform, edge LabCluster
 	for _, c := range labul.Clusters {
-		if c.Name == "platform" {
+		switch c.Name {
+		case "platform":
 			platform = c
+		case "edge":
+			edge = c
 		}
+	}
+	if !edge.NoGitOpsYet || edge.NoGitOps || edge.Path != "harvester/edge-test2" {
+		t.Errorf("edge row: %+v", edge)
 	}
 	if !platform.Managed || platform.Path != "labul/vsphere/platform" || platform.Apps != 2 || platform.GitOps["failed"] != 1 {
 		t.Errorf("platform row: %+v", platform)
@@ -146,6 +156,7 @@ func TestUnmanagedLab(t *testing.T) {
 	}
 	delete(s.dirs, "dev")
 	delete(s.dirs, "xrs")
+	delete(s.dirs, "edge")
 	if got := s.unmanagedLab(); got != "labul" {
 		t.Errorf("single lab: %q", got)
 	}
@@ -171,7 +182,7 @@ func TestScanAll_NestedAndPrune(t *testing.T) {
 	write("labda/vsphere/dev")
 
 	s := newTestServer(map[string]*graph.ClusterProfile{}, map[string]string{}, false)
-	s.root = root
+	s.cfg = scan.Config{Roots: []scan.RootSpec{{Path: root}}}
 	s.dirs = map[string]scan.ClusterDir{}
 	s.scanAll()
 	if len(s.cache) != 2 || s.dirs["platform"].Lab != "labul" || s.dirs["dev"].Lab != "labda" {
@@ -188,5 +199,45 @@ func TestScanAll_NestedAndPrune(t *testing.T) {
 	s.scanAll()
 	if _, ok := s.cache["dev"]; ok || len(s.cache) != 1 {
 		t.Errorf("removed cluster still cached: %v", s.cache)
+	}
+}
+
+func TestScanAll_MultiRootLateRoot(t *testing.T) {
+	base := t.TempDir()
+	write := func(dir string) {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		ks := "apiVersion: kustomize.toolkit.fluxcd.io/v1\nkind: Kustomization\nmetadata:\n  name: apps\n  namespace: flux-system\nspec:\n  path: ./apps\n"
+		if err := os.WriteFile(filepath.Join(dir, "apps.yaml"), []byte(ks), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st := filepath.Join(base, "st", "clusters", "labul")
+	hv := filepath.Join(base, "harvester", "clusters")
+	write(filepath.Join(st, "vsphere", "platform-sthings"))
+
+	s := newTestServer(map[string]*graph.ClusterProfile{}, map[string]string{}, false)
+	s.dirs = map[string]scan.ClusterDir{}
+	s.cfg = scan.Config{
+		Roots:    []scan.RootSpec{{Path: st}, {Path: hv, Name: "harvester", Include: []string{"edge-test2"}}},
+		Clusters: map[string]scan.Override{"edge-test2": {Name: "edge-tt-test2", Lab: "labul"}},
+	}
+	s.scanAll()
+	before := s.rootsPresent()
+	if len(s.cache) != 1 {
+		t.Fatalf("first scan: %v", s.cache)
+	}
+
+	// git-sync clones the second repo later
+	write(filepath.Join(hv, "edge-test2"))
+	write(filepath.Join(hv, "homerun2-dev")) // not included
+	if s.rootsPresent() == before {
+		t.Fatal("appearing root not detected")
+	}
+	s.scanAll()
+	d, ok := s.dirs["edge-tt-test2"]
+	if len(s.cache) != 2 || !ok || d.Lab != "labul" || d.Rel != "harvester/edge-test2" {
+		t.Errorf("after clone: cache=%d dirs=%+v", len(s.cache), s.dirs)
 	}
 }

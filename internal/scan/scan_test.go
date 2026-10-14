@@ -106,3 +106,61 @@ func TestDiscover_MaxDepth(t *testing.T) {
 		t.Errorf("got %+v", m)
 	}
 }
+
+func TestDiscoverAll_RootsIncludeOverrides(t *testing.T) {
+	base := t.TempDir()
+	st := filepath.Join(base, "stuttgart-things", "clusters", "labul")
+	hv := filepath.Join(base, "harvester", "clusters")
+	mkCluster(t, filepath.Join(st, "vsphere", "platform-sthings"))
+	mkCluster(t, filepath.Join(hv, "edge-test2"))
+	mkCluster(t, filepath.Join(hv, "homerun2-dev"))
+	mkCluster(t, filepath.Join(hv, "platform-sthings")) // same name as in st
+
+	cfg := Config{
+		Roots: []RootSpec{
+			{Path: st},
+			{Path: hv, Name: "harvester", Lab: "harvester", Include: []string{"edge-test2", "platform-sthings"}},
+			{Path: filepath.Join(base, "not-cloned-yet")},
+		},
+		Clusters: map[string]Override{"edge-test2": {Name: "edge-tt-test2", Lab: "labul"}},
+	}
+	dirs := DiscoverAll(cfg, "")
+	if len(dirs) != 3 {
+		t.Fatalf("got %+v", dirs)
+	}
+	if d := dirs[0]; d.Name != "platform-sthings" || d.Lab != "labul" || d.Rel != "vsphere/platform-sthings" || d.Duplicate {
+		t.Errorf("stuttgart-things cluster: %+v", d)
+	}
+	if d := dirs[1]; d.Name != "edge-tt-test2" || d.Dir != "edge-test2" || d.Lab != "labul" || d.Rel != "harvester/edge-test2" {
+		t.Errorf("override: %+v", d)
+	}
+	if d := dirs[2]; d.Name != "platform-sthings" || d.Lab != "harvester" || !d.Duplicate {
+		t.Errorf("duplicate across roots with root lab: %+v", d)
+	}
+}
+
+func TestLoadConfig(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, content string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	y := write("c.yaml", "roots:\n  - path: /a\n  - path: /b\n    name: b\n    include: [x]\nclusters:\n  x: {name: edge-tt-test2, lab: l}\n")
+	c, err := LoadConfig(y)
+	if err != nil || len(c.Roots) != 2 || c.Roots[1].Include[0] != "x" || c.Clusters["x"].Name != "edge-tt-test2" {
+		t.Errorf("yaml: %+v %v", c, err)
+	}
+	// JSON on one line, as substituted by Flux into a ConfigMap
+	j := write("c.json", `{"roots":[{"path":"/a","lab":"labul"}],"clusters":{"x":{"lab":"l"}}}`)
+	if c, err := LoadConfig(j); err != nil || c.Roots[0].Lab != "labul" {
+		t.Errorf("json: %+v %v", c, err)
+	}
+	for _, bad := range []string{"roots: []\n", "roots:\n  - name: x\n", "roots: [\n"} {
+		if _, err := LoadConfig(write("bad.yaml", bad)); err == nil {
+			t.Errorf("%q: expected error", bad)
+		}
+	}
+}

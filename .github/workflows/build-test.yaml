@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # Release-please PR (bot-started runs fail at startup, nothing to test).
+    paths-ignore:
+      - CHANGELOG.md
+      - .release-please-manifest.json
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

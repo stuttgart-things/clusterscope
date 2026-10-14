@@ -58,3 +58,6 @@ jobs:
           echo "released ${TAG} — dispatching the build at it"
           gh workflow run build-scan-image.yaml \
             --repo "${GITHUB_REPOSITORY}" --ref "${TAG}"
+          # Docs for the release. Dispatched here because a workflow_run
+          # trigger does not fire for runs started with the GITHUB_TOKEN.
+          gh workflow run pages.yaml --repo "${GITHUB_REPOSITORY}" --ref main

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/stuttgart-things/clusterscope/internal/diff"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
@@ -44,6 +45,8 @@ func main() {
 	kubeconfigDir := flag.String("kubeconfig-dir", "", "directory with one kubeconfig file per cluster, named after the cluster dir (used with -live)")
 	kubeconfigMap := flag.String("kubeconfig-map", "", "YAML file mapping cluster name → kubeconfig path, relative to -kubeconfig-dir (used with -live)")
 	selfCluster := flag.String("self-cluster", "", "cluster clusterscope runs in; with -kubeconfig-dir/-kubeconfig-map only this cluster uses -kubeconfig / in-cluster")
+	probeEndpoints := flag.Bool("probe", false, "probe every HTTPRoute URL (DNS, TLS, HTTP) on each live refresh (used with -live)")
+	probeTimeout := flag.Duration("probe-timeout", 5*time.Second, "per-URL probe timeout (used with -probe)")
 	refreshSeconds := flag.Int("refresh", 30, "live status refresh interval in seconds (used with -live)")
 	previewRoot := flag.String("preview-root", "", "directory containing PR head ref cluster files for diff preview (used with -serve)")
 
@@ -75,6 +78,7 @@ Examples:
   clusterscope -serve :8080 -root /data -repos-config /etc/git-sync/repos.yaml
   clusterscope -serve :8080 -root ./clusters/ -live -kubeconfig ~/.kube/prod
   clusterscope -serve :8080 -root ./clusters/labul/vsphere -live -kubeconfig-dir /kubeconfigs -self-cluster platform-sthings
+  clusterscope -serve :8080 -root ./clusters/labul/vsphere -live -kubeconfig-dir /kubeconfigs -probe
   clusterscope -serve :8080 -root /data/base -preview-root /data/head
   clusterscope -diff -base-dir ./clusters/prod -head-dir ./pr-clusters/prod
   clusterscope -diff -base-dir ./base -head-dir ./head -format json
@@ -125,6 +129,8 @@ Examples:
 			KubeconfigDir:  *kubeconfigDir,
 			KubeconfigMap:  kubeconfigs,
 			SelfCluster:    *selfCluster,
+			Probe:          *probeEndpoints,
+			ProbeTimeout:   *probeTimeout,
 			RefreshSeconds: *refreshSeconds,
 			PreviewRoot:    *previewRoot,
 		}

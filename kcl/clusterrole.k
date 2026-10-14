@@ -45,6 +45,12 @@ clusterRole = {
             resources: ["fluxinstances"]
             verbs: ["get", "list", "watch"]
         }
+        # Gateway API (endpoint inventory)
+        {
+            apiGroups: ["gateway.networking.k8s.io"]
+            resources: ["gateways", "httproutes"]
+            verbs: ["get", "list", "watch"]
+        }
         # ArgoCD CRDs (argoproj.io)
         {
             apiGroups: ["argoproj.io"]

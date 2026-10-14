@@ -40,6 +40,7 @@ nav:
       - CLI Reference: usage.md
       - Serve Mode: serve.md
       - Live Mode: live.md
+      - Endpoint Inventory: endpoints.md
       - PDF Export: pdf.md
   - Configuration:
       - repos.yaml: configuration.md

@@ -82,7 +82,8 @@ live.Clients.Enrich(profile, cluster)
   ├─ resolve kubeconfig: -kubeconfig-map → -kubeconfig-dir/<cluster> → default (self only)
   ├─ GET /version                                     →  reachable | unreachable | unconfigured
   ├─ Flux:   list kustomizations + gitrepositories    →  status from Ready conditions
-  └─ ArgoCD: list applications                        →  status from health + sync
+  ├─ ArgoCD: list applications                        →  status from health + sync
+  └─ Gateway API: list gateways + httproutes          →  endpoint inventory (+ probe.ProbeAll with -probe)
 ```
 
 ## Technology detection

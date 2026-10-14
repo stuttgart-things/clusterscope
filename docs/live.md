@@ -108,4 +108,4 @@ Reachability is exposed in:
 - `KUBECONFIG` follows standard kubectl conventions
 - `-kubeconfig` and `-kubeconfig-dir` are validated (must exist) before the server starts
 - Live errors degrade to `status: "unknown"` — the server never crashes on live failures
-- Only read access is needed on workload clusters (`get`/`list` on the Flux / Argo CD CRDs)
+- Only read access is needed on workload clusters (`get`/`list` on the Flux / Argo CD CRDs, and `gateway.networking.k8s.io` for the [endpoint inventory](endpoints.md))

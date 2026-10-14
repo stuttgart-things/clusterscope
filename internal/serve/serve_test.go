@@ -13,6 +13,7 @@ import (
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 	"github.com/stuttgart-things/clusterscope/internal/live"
 	"github.com/stuttgart-things/clusterscope/internal/preview"
+	"github.com/stuttgart-things/clusterscope/internal/probe"
 )
 
 func TestHandleHealthz(t *testing.T) {
@@ -78,6 +79,8 @@ func newTestServer(profiles map[string]*graph.ClusterProfile, errs map[string]st
 		scanned:      scanned,
 		refreshed:    make(map[string]time.Time),
 		liveStatus:   make(map[string]live.ClusterStatus),
+		endpoints:    make(map[string]endpointState),
+		probes:       make(map[string]map[string]probe.Result),
 		previewCache: make(map[string]*graph.ClusterProfile),
 		cloner:       preview.NewCloner(preview.DefaultTTL),
 		opts:         Options{Live: liveMode},

@@ -30,10 +30,20 @@ import (
 // Options configures optional features of the HTTP server.
 type Options struct {
 	// Live enriches every cluster profile with real-time reconciliation status
-	// fetched via kubectl. Requires kubectl on PATH and a valid KUBECONFIG.
+	// fetched from the Kubernetes API.
 	Live bool
-	// Kubeconfig is the path to the kubeconfig file. Empty means kubectl default.
+	// Kubeconfig is the path to the default kubeconfig file. Empty means
+	// in-cluster ServiceAccount, then KUBECONFIG / ~/.kube/config.
 	Kubeconfig string
+	// KubeconfigDir holds one kubeconfig file per cluster, named after the
+	// cluster directory. Enables per-cluster live mode.
+	KubeconfigDir string
+	// KubeconfigMap maps cluster name → kubeconfig path (relative to
+	// KubeconfigDir). Enables per-cluster live mode.
+	KubeconfigMap map[string]string
+	// SelfCluster names the cluster clusterscope runs in. In per-cluster
+	// mode only this cluster falls back to the default kubeconfig.
+	SelfCluster string
 	// RefreshSeconds is how often (in seconds) live status is re-fetched.
 	// Defaults to 30 when Live is true.
 	RefreshSeconds int
@@ -53,6 +63,9 @@ type ClusterSummary struct {
 	LastRefreshed string         `json:"lastRefreshed,omitempty"`
 	ScanError     string         `json:"scanError,omitempty"`
 	HealthSummary map[string]int `json:"healthSummary,omitempty"`
+	// Reachability is "reachable", "unreachable" or "unconfigured" (live mode).
+	Reachability string `json:"reachability,omitempty"`
+	LiveError    string `json:"liveError,omitempty"`
 }
 
 // Server holds the HTTP mux and cluster cache.
@@ -65,6 +78,11 @@ type Server struct {
 	refreshed map[string]time.Time
 	scanErrs  map[string]string
 	ready     bool
+
+	// clients resolves the kubeconfig per cluster; liveStatus holds the last
+	// cluster-level live result (reachability).
+	clients    *live.Clients
+	liveStatus map[string]live.ClusterStatus
 
 	// preview holds parsed cluster profiles from the PR head directory.
 	previewMu    sync.RWMutex
@@ -91,8 +109,18 @@ func Start(addr, root string, opts Options) error {
 		scanned:      make(map[string]time.Time),
 		refreshed:    make(map[string]time.Time),
 		scanErrs:     make(map[string]string),
+		liveStatus:   make(map[string]live.ClusterStatus),
 		previewCache: make(map[string]*graph.ClusterProfile),
 		cloner:       preview.NewCloner(preview.DefaultTTL),
+	}
+
+	if opts.Live {
+		s.clients = live.NewClients(live.ClientConfig{
+			KubeconfigDir: opts.KubeconfigDir,
+			Map:           opts.KubeconfigMap,
+			Kubeconfig:    opts.Kubeconfig,
+			Self:          opts.SelfCluster,
+		})
 	}
 
 	s.scanAll()
@@ -106,7 +134,8 @@ func Start(addr, root string, opts Options) error {
 	go s.watch()
 
 	if opts.Live {
-		log.Printf("live mode enabled  kubeconfig=%q  refresh=%ds", opts.Kubeconfig, opts.RefreshSeconds)
+		log.Printf("live mode enabled  kubeconfig=%q  kubeconfig-dir=%q  mapped=%d  self=%q  refresh=%ds",
+			opts.Kubeconfig, opts.KubeconfigDir, len(opts.KubeconfigMap), opts.SelfCluster, opts.RefreshSeconds)
 		s.enrichAll()
 		go s.liveRefreshLoop()
 	}
@@ -140,18 +169,44 @@ func (s *Server) enrichAll() {
 		names = append(names, n)
 	}
 	s.mu.RUnlock()
+
+	// Clusters are enriched in parallel so one unreachable API server
+	// (timeout) does not delay the others.
+	var wg sync.WaitGroup
 	for _, name := range names {
-		s.mu.Lock()
+		s.mu.RLock()
 		p := s.cache[name]
-		s.mu.Unlock()
-		if p != nil {
-			live.Enrich(p, s.opts.Kubeconfig)
-			s.mu.Lock()
-			s.refreshed[name] = time.Now()
-			s.mu.Unlock()
-			log.Printf("live enriched %s", name)
+		s.mu.RUnlock()
+		if p == nil {
+			continue
 		}
+		wg.Add(1)
+		go func(name string, p *graph.ClusterProfile) {
+			defer wg.Done()
+			s.enrichCluster(name, p)
+		}(name, p)
 	}
+	wg.Wait()
+}
+
+// enrichCluster runs live enrichment for one cluster and records its
+// reachability.
+func (s *Server) enrichCluster(name string, p *graph.ClusterProfile) {
+	st := s.clients.Enrich(p, name)
+	s.mu.Lock()
+	s.refreshed[name] = st.CheckedAt
+	s.liveStatus[name] = st
+	s.mu.Unlock()
+
+	switch st.Reachability {
+	case live.Reachable:
+		clusterReachable.WithLabelValues(name).Set(1)
+	case live.Unreachable:
+		clusterReachable.WithLabelValues(name).Set(0)
+	default:
+		clusterReachable.DeleteLabelValues(name)
+	}
+	log.Printf("live enriched %s  reachability=%s", name, st.Reachability)
 }
 
 func (s *Server) liveRefreshLoop() {
@@ -238,10 +293,7 @@ func (s *Server) scanCluster(path, name string) {
 	s.mu.RUnlock()
 
 	if s.opts.Live {
-		live.Enrich(profile, s.opts.Kubeconfig)
-		s.mu.Lock()
-		s.refreshed[name] = time.Now()
-		s.mu.Unlock()
+		s.enrichCluster(name, profile)
 	}
 }
 
@@ -364,6 +416,10 @@ func (s *Server) handleAPIclusters(w http.ResponseWriter, _ *http.Request) {
 		}
 		if t, ok := s.refreshed[name]; ok {
 			cs.LastRefreshed = t.Format(time.RFC3339)
+		}
+		if st, ok := s.liveStatus[name]; ok {
+			cs.Reachability = st.Reachability
+			cs.LiveError = st.Error
 		}
 		summaries = append(summaries, cs)
 	}

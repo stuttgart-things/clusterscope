@@ -78,9 +78,11 @@ dagger/                # Dagger CI module (lint, build, image, scan)
 ### Live enrichment
 
 ```
-live.Enrich(profile, kubeconfig)
-  ├─ Flux:   kubectl get kustomizations + gitrepositories  →  status from Ready conditions
-  └─ ArgoCD: kubectl get applications                       →  status from health + sync
+live.Clients.Enrich(profile, cluster)
+  ├─ resolve kubeconfig: -kubeconfig-map → -kubeconfig-dir/<cluster> → default (self only)
+  ├─ GET /version                                     →  reachable | unreachable | unconfigured
+  ├─ Flux:   list kustomizations + gitrepositories    →  status from Ready conditions
+  └─ ArgoCD: list applications                        →  status from health + sync
 ```
 
 ## Technology detection

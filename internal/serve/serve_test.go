@@ -11,6 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stuttgart-things/clusterscope/internal/graph"
+	"github.com/stuttgart-things/clusterscope/internal/live"
 	"github.com/stuttgart-things/clusterscope/internal/preview"
 )
 
@@ -76,6 +77,7 @@ func newTestServer(profiles map[string]*graph.ClusterProfile, errs map[string]st
 		scanErrs:     errs,
 		scanned:      scanned,
 		refreshed:    make(map[string]time.Time),
+		liveStatus:   make(map[string]live.ClusterStatus),
 		previewCache: make(map[string]*graph.ClusterProfile),
 		cloner:       preview.NewCloner(preview.DefaultTTL),
 		opts:         Options{Live: liveMode},
@@ -183,6 +185,37 @@ func TestHandleAPIclusters_HealthSummary(t *testing.T) {
 	}
 	if h["failed"] != 1 {
 		t.Errorf("failed: got %d, want 1", h["failed"])
+	}
+}
+
+func TestHandleAPIclusters_Reachability(t *testing.T) {
+	profiles := map[string]*graph.ClusterProfile{
+		"prod": {Technology: "flux"},
+		"dev":  {Technology: "flux"},
+		"mgmt": {Technology: "flux"},
+	}
+	s := newTestServer(profiles, map[string]string{}, true)
+	s.liveStatus["prod"] = live.ClusterStatus{Reachability: live.Reachable}
+	s.liveStatus["dev"] = live.ClusterStatus{Reachability: live.Unreachable, Error: "dial tcp: i/o timeout"}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/clusters", nil)
+	w := httptest.NewRecorder()
+	s.handleAPIclusters(w, req)
+
+	var summaries []ClusterSummary
+	_ = json.NewDecoder(w.Body).Decode(&summaries)
+	got := make(map[string]ClusterSummary)
+	for _, cs := range summaries {
+		got[cs.Name] = cs
+	}
+	if got["prod"].Reachability != live.Reachable || got["prod"].LiveError != "" {
+		t.Errorf("prod: %+v", got["prod"])
+	}
+	if got["dev"].Reachability != live.Unreachable || got["dev"].LiveError == "" {
+		t.Errorf("dev: %+v", got["dev"])
+	}
+	if got["mgmt"].Reachability != "" {
+		t.Errorf("mgmt without live result should omit reachability: %+v", got["mgmt"])
 	}
 }
 

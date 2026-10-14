@@ -72,7 +72,10 @@ See [PR Preview](docs/preview.md) for full documentation.
 | `-root` | `.` | Root directory containing cluster subdirs |
 | `-serve` | — | Start HTTP dashboard server (e.g. `:8080`) |
 | `-live` | `false` | Enrich graph with real-time reconciliation status |
-| `-kubeconfig` | — | Path to kubeconfig file |
+| `-kubeconfig` | — | Path to default kubeconfig file |
+| `-kubeconfig-dir` | — | Directory with one kubeconfig per cluster (multi-cluster live mode) |
+| `-kubeconfig-map` | — | YAML mapping cluster name → kubeconfig path |
+| `-self-cluster` | — | Cluster clusterscope runs in (uses `-kubeconfig` / in-cluster) |
 | `-refresh` | `30` | Live status refresh interval in seconds |
 | `-diff` | `false` | Compare two cluster directories and output a diff |
 | `-base-dir` | — | Base cluster directory (used with `-diff`) |

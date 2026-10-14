@@ -6,6 +6,9 @@
 //
 // Out-of-cluster: falls back to the kubeconfig path (--kubeconfig flag,
 // KUBECONFIG env, or ~/.kube/config).
+//
+// Multi-cluster: Clients resolves a separate kubeconfig per cluster (see
+// ClientConfig) and reports whether each cluster's API server is reachable.
 package live
 
 import (
@@ -68,28 +71,12 @@ type argoItem struct {
 	} `json:"status"`
 }
 
-// ── public API ────────────────────────────────────────────────────────────────
-
-// Enrich auto-detects technology and enriches the profile accordingly.
-// Errors are silently degraded to status "unknown" — the tool must never crash
-// on live failures.
-func Enrich(profile *graph.ClusterProfile, kubeconfig string) {
-	client, err := newDynamicClient(kubeconfig)
-	if err != nil {
-		log.Printf("live: cannot create k8s client: %v", err)
-		return
-	}
-	switch profile.Technology {
-	case "argocd":
-		enrichArgoCD(profile, client)
-	default:
-		enrichFlux(profile, client)
-	}
-}
-
 // ── k8s client construction ───────────────────────────────────────────────────
 
-func newDynamicClient(kubeconfig string) (dynamic.Interface, error) {
+// newRESTConfig builds a REST config for a kubeconfig path. An empty path uses
+// the in-cluster ServiceAccount when running inside Kubernetes, otherwise the
+// default loading rules (KUBECONFIG env, ~/.kube/config).
+func newRESTConfig(kubeconfig string) (*rest.Config, error) {
 	var cfg *rest.Config
 	var err error
 
@@ -111,7 +98,7 @@ func newDynamicClient(kubeconfig string) (dynamic.Interface, error) {
 	}
 
 	cfg.Timeout = 10 * time.Second
-	return dynamic.NewForConfig(cfg)
+	return cfg, nil
 }
 
 // ── GVR definitions ───────────────────────────────────────────────────────────

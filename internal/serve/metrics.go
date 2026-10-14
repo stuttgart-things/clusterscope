@@ -33,6 +33,11 @@ var (
 		Buckets: prometheus.DefBuckets,
 	})
 
+	clusterReachable = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "clusterscope_cluster_reachable",
+		Help: "1 if the cluster's API server answered during the last live refresh, 0 if not. Absent when no kubeconfig is configured for the cluster.",
+	}, []string{"cluster"})
+
 	scanErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "clusterscope_scan_errors_total",
 		Help: "Total number of cluster scan errors.",

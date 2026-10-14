@@ -650,6 +650,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Cluster discovery and labs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#several-repos-name-and-lab-overrides-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Several repos, name and lab overrides (-config)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -944,6 +961,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Cluster discovery and labs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#several-repos-name-and-lab-overrides-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Several repos, name and lab overrides (-config)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1043,6 +1077,23 @@
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>harvester/clusters/edge                   → -lab (or "default")
 </code></pre></div>
 <p>So <code>-root ./clusters</code> shows all labs of the repo at once, and <code>-root ./clusters/labul/vsphere</code> shows one lab. Use <code>-lab &lt;name&gt;</code> for clusters whose path does not name a lab, and for clusters that only have a kubeconfig.</p>
+<h3 id="several-repos-name-and-lab-overrides-config">Several repos, name and lab overrides (<code>-config</code>)</h3>
+<p>When the clusters of a lab live in several repos, or a directory is not named like its cluster, use <code>-config</code> instead of <code>-root</code> (YAML or JSON):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">roots</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/stuttgart-things/clusters/labul</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/data/harvester/clusters</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">harvester</span><span class="w">          </span><span class="c1"># prefix of the shown path: harvester/edge-test2</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">lab</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">harvester</span><span class="w">           </span><span class="c1"># lab of this root's clusters (optional)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">include</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">edge-test2</span><span class="p p-Indicator">]</span><span class="w">    </span><span class="c1"># only these directories (default: all)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nt">clusters</span><span class="p">:</span><span class="w">                    </span><span class="c1"># per directory name</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">edge-test2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">edge-tt-test2</span><span class="p p-Indicator">,</span><span class="nt"> lab</span><span class="p">:</span><span class="w"> </span><span class="nv">labul</span><span class="w"> </span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<ul>
+<li>Lab, in order: the cluster override, the root's <code>lab</code>, the path (<code>clusters/&lt;lab&gt;/…</code>), <code>-lab</code>.</li>
+<li>The cluster <strong>name</strong> is the key for the kubeconfig (<code>-kubeconfig-dir/&lt;name&gt;</code>) and the live status, so override it wherever directory and cluster differ.</li>
+<li>A root that does not exist yet (e.g. not yet cloned by git-sync) is skipped and scanned as soon as it appears. Roots are also rescanned every 5 minutes, because git-sync publishes a new checkout by swapping a symlink above the watched directories.</li>
+<li>Unquoted YAML 1.1 booleans (<code>y</code>, <code>yes</code>, <code>on</code>, …) as names are read as <code>true</code>, so quote such names.</li>
+</ul>
 <p>Cluster names must be unique (they are also the kubeconfig names). A second directory with the same name is skipped and reported as <code>duplicate name</code>.</p>
 <p>Directories with no GitOps object (no Flux Kustomization / source, no Argo CD Application), and with no reachable cluster behind them, are listed but not counted as clusters. These are typically Crossplane claims or clusterbook data next to the cluster directories.</p>
 <p>The file watcher covers root, every cluster directory and the directories in between; any change triggers a debounced full rescan, and removed directories disappear from the dashboard and the metrics.</p>
@@ -1147,6 +1198,11 @@
 </tr>
 <tr>
 <td>info</td>
+<td><code>no GitOps yet</code></td>
+<td>cluster directory and a running cluster, but no Flux / Argo CD objects in either (e.g. k3s set up, bootstrap pending)</td>
+</tr>
+<tr>
+<td>info</td>
 <td><code>not in Git</code> (object)</td>
 <td>Kustomization / Application in the cluster without any GitOps manager: applied by hand</td>
 </tr>
@@ -1155,23 +1211,23 @@
 <p>Kustomizations / Applications in the cluster that are not in the cluster directory but were created by another GitOps object (labels <code>kustomize.toolkit.fluxcd.io/name</code>, <code>helm.toolkit.fluxcd.io/name</code>, <code>fluxcd.controlplane.io/name</code>, <code>app.kubernetes.io/instance</code>, annotation <code>argocd.argoproj.io/tracking-id</code>, or an owner reference) are <strong>nested</strong>: they are in Git elsewhere. They are counted per cluster (<code>+N nested</code>), not reported.</p>
 <h2 id="api">API</h2>
 <p><code>GET /api/lab</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"generatedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-14T17:57:45Z"</span><span class="p">,</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">"live"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">"probing"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">"labs"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"labul"</span><span class="p">,</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">"summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"clusters"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"reachable"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"unmanaged"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"apps"</span><span class="p">:</span><span class="w"> </span><span class="mi">22</span><span class="p">,</span><span class="w"> </span><span class="nt">"healthy"</span><span class="p">:</span><span class="w"> </span><span class="mi">34</span><span class="p">,</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">                </span><span class="nt">"degraded"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"down"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"drift"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"routes"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span><span class="w"> </span><span class="nt">"routesOK"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">                </span><span class="nt">"errors"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"warnings"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">},</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">"clusters"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra-sthings"</span><span class="p">,</span><span class="w"> </span><span class="nt">"managed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"labul/vsphere/infra-sthings"</span><span class="p">,</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">                  </span><span class="nt">"tech"</span><span class="p">:</span><span class="w"> </span><span class="s2">"flux"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reachability"</span><span class="p">:</span><span class="w"> </span><span class="s2">"reachable"</span><span class="p">,</span><span class="w"> </span><span class="nt">"apps"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="nt">"nested"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">                  </span><span class="nt">"gitops"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"ready"</span><span class="p">:</span><span class="w"> </span><span class="mi">17</span><span class="p">},</span><span class="w"> </span><span class="nt">"workloads"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"healthy"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"degraded"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"n/a"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">},</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">                  </span><span class="nt">"drift"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"routes"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"routesOK"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}],</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"error"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"drift"</span><span class="p">,</span><span class="w"> </span><span class="nt">"cluster"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra-sthings"</span><span class="p">,</span><span class="w"> </span><span class="nt">"object"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nfs-csi"</span><span class="p">,</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">                  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GitOps ready, workloads degraded 2/3 — snapshot-controller-…: CrashLoopBackOff"</span><span class="p">}]</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="p">}]</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"generatedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-14T17:57:45Z"</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">"live"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">"probing"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">"labs"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"labul"</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">"summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"clusters"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"reachable"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"unmanaged"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"apps"</span><span class="p">:</span><span class="w"> </span><span class="mi">22</span><span class="p">,</span><span class="w"> </span><span class="nt">"healthy"</span><span class="p">:</span><span class="w"> </span><span class="mi">34</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">                </span><span class="nt">"degraded"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"down"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"drift"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"routes"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span><span class="w"> </span><span class="nt">"routesOK"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">                </span><span class="nt">"errors"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"warnings"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">},</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">"clusters"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra-sthings"</span><span class="p">,</span><span class="w"> </span><span class="nt">"managed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"labul/vsphere/infra-sthings"</span><span class="p">,</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">                  </span><span class="nt">"tech"</span><span class="p">:</span><span class="w"> </span><span class="s2">"flux"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reachability"</span><span class="p">:</span><span class="w"> </span><span class="s2">"reachable"</span><span class="p">,</span><span class="w"> </span><span class="nt">"apps"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="nt">"nested"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">                  </span><span class="nt">"gitops"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"ready"</span><span class="p">:</span><span class="w"> </span><span class="mi">17</span><span class="p">},</span><span class="w"> </span><span class="nt">"workloads"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"healthy"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"degraded"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"n/a"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">},</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">                  </span><span class="nt">"drift"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"routes"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"routesOK"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}],</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"error"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"drift"</span><span class="p">,</span><span class="w"> </span><span class="nt">"cluster"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra-sthings"</span><span class="p">,</span><span class="w"> </span><span class="nt">"object"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nfs-csi"</span><span class="p">,</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">                  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GitOps ready, workloads degraded 2/3 — snapshot-controller-…: CrashLoopBackOff"</span><span class="p">}]</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span><span class="p">}]</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="p">}</span>
 </code></pre></div>
 <p><code>GET /api/clusters</code> carries the <code>lab</code> of every cluster; the sidebar groups clusters by lab when there is more than one.</p>
 <h2 id="metrics">Metrics</h2>
@@ -1197,7 +1253,7 @@
 </tbody>
 </table>
 <p><code>clusterscope_cluster_info</code> lets you group the other per-cluster metrics by lab:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">lab</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="nv">clusterscope_app_gitops_drift</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">on</span><span class="o">(</span><span class="nv">cluster</span><span class="o">)</span><span class="w"> </span><span class="k">group_left</span><span class="o">(</span><span class="nv">lab</span><span class="o">)</span><span class="w"> </span><span class="nv">clusterscope_cluster_info</span><span class="o">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">lab</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="nv">clusterscope_app_gitops_drift</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">on</span><span class="o">(</span><span class="nv">cluster</span><span class="o">)</span><span class="w"> </span><span class="k">group_left</span><span class="o">(</span><span class="nv">lab</span><span class="o">)</span><span class="w"> </span><span class="nv">clusterscope_cluster_info</span><span class="o">)</span>
 </code></pre></div>
 
 

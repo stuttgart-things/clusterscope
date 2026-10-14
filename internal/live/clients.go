@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,14 @@ type ClusterStatus struct {
 	// Endpoints is the Gateway API inventory; nil unless the cluster is
 	// reachable.
 	Endpoints *Endpoints
+	// NotDeployed lists app nodes of the cluster directory without a live
+	// Kustomization / Application; NotInGit lists live ones
+	// ("<namespace>/<name>") without a node. Only set when reachable.
+	NotDeployed []string
+	NotInGit    []string
+	// Nested lists live Kustomizations / Applications without a node that
+	// were created by another GitOps object (in Git elsewhere).
+	Nested []string
 	// WorkloadError is set when workloads or pods could not be listed
 	// (typically missing RBAC); node workload health is then absent.
 	WorkloadError string
@@ -169,18 +178,44 @@ func (c *Clients) client(path string) (*kubeClient, error) {
 // propagate: an unreachable or unconfigured cluster gets all nodes reset to
 // "unknown" so stale status from an earlier run does not linger.
 func (c *Clients) Enrich(profile *graph.ClusterProfile, cluster string) ClusterStatus {
+	kc, st := c.connect(cluster)
+	if kc == nil {
+		msg := st.Error
+		if st.Reachability == Unreachable {
+			msg = "cluster unreachable: " + st.Error
+		}
+		markUnknown(profile, msg)
+		return st
+	}
+
+	var members map[string][]objRef
+	var liveApps []liveApp
+	switch profile.Technology {
+	case "argocd":
+		members, liveApps = enrichArgoCD(profile, kc.dynamic)
+	default:
+		members, liveApps = enrichFlux(profile, kc.dynamic)
+	}
+	st.NotDeployed, st.NotInGit, st.Nested = compareApps(profile, liveApps)
+	c.enrichWorkloads(profile, cluster, kc.dynamic, members, &st)
+	ep := fetchEndpoints(kc.dynamic, profile.Technology)
+	st.Endpoints = &ep
+	return st
+}
+
+// connect resolves the kubeconfig for cluster and pings its API server. The
+// client is nil unless the cluster is reachable.
+func (c *Clients) connect(cluster string) (*kubeClient, ClusterStatus) {
 	st := ClusterStatus{CheckedAt: time.Now()}
 
 	path, ok, err := c.resolve(cluster)
 	switch {
 	case err != nil:
 		st.Reachability, st.Error = Unconfigured, err.Error()
+		return nil, st
 	case !ok:
 		st.Reachability, st.Error = Unconfigured, "no kubeconfig for cluster"
-	}
-	if st.Reachability != "" {
-		markUnknown(profile, st.Error)
-		return st
+		return nil, st
 	}
 	st.Source = path
 	if path == "" {
@@ -194,22 +229,95 @@ func (c *Clients) Enrich(profile *graph.ClusterProfile, cluster string) ClusterS
 	if err != nil {
 		log.Printf("live: cluster %s unreachable (%s): %v", cluster, st.Source, err)
 		st.Reachability, st.Error = Unreachable, err.Error()
-		markUnknown(profile, "cluster unreachable: "+err.Error())
-		return st
+		return nil, st
 	}
-
 	st.Reachability = Reachable
-	var members map[string][]objRef
-	switch profile.Technology {
-	case "argocd":
-		members = enrichArgoCD(profile, kc.dynamic)
-	default:
-		members = enrichFlux(profile, kc.dynamic)
-	}
-	c.enrichWorkloads(profile, cluster, kc.dynamic, members, &st)
-	ep := fetchEndpoints(kc.dynamic, profile.Technology)
-	st.Endpoints = &ep
+	return kc, st
+}
+
+// Ping only checks reachability of cluster (used for clusters that have a
+// kubeconfig but no cluster directory).
+func (c *Clients) Ping(cluster string) ClusterStatus {
+	_, st := c.connect(cluster)
 	return st
+}
+
+// Configured lists the clusters that have an explicit kubeconfig: the
+// -kubeconfig-map keys and the files in -kubeconfig-dir (hidden entries such
+// as the "..data" links of a mounted Secret are skipped).
+func (c *Clients) Configured() []string {
+	set := make(map[string]bool)
+	for name := range c.cfg.Map {
+		set[name] = true
+	}
+	if c.cfg.KubeconfigDir != "" {
+		entries, err := os.ReadDir(c.cfg.KubeconfigDir)
+		if err != nil {
+			log.Printf("live: read kubeconfig dir: %v", err)
+		}
+		for _, e := range entries {
+			if strings.HasPrefix(e.Name(), ".") {
+				continue
+			}
+			if fi, err := os.Stat(filepath.Join(c.cfg.KubeconfigDir, e.Name())); err == nil && fi.Mode().IsRegular() {
+				set[e.Name()] = true
+			}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for name := range set {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// compareApps compares the GitOps objects of the cluster directory with the
+// ones live in the cluster: notDeployed are nodes without a live
+// Kustomization / Application; live ones without a node ("<namespace>/<name>")
+// are nested when another GitOps object created them, else notInGit
+// (applied by hand).
+func compareApps(profile *graph.ClusterProfile, liveApps []liveApp) (notDeployed, notInGit, nested []string) {
+	if liveApps == nil { // list failed
+		return nil, nil, nil
+	}
+	liveNames := make(map[string]bool, len(liveApps))
+	for _, a := range liveApps {
+		liveNames[a.ref.Name] = true
+	}
+	nodeIDs := make(map[string]bool, len(profile.Graph.Nodes))
+	for _, n := range profile.Graph.Nodes {
+		nodeIDs[n.ID] = true
+		if isAppNode(n) && !liveNames[n.ID] {
+			notDeployed = append(notDeployed, n.ID)
+		}
+	}
+	for _, a := range liveApps {
+		if nodeIDs[a.ref.Name] {
+			continue
+		}
+		if a.managed {
+			nested = append(nested, a.ref.Namespace+"/"+a.ref.Name)
+		} else {
+			notInGit = append(notInGit, a.ref.Namespace+"/"+a.ref.Name)
+		}
+	}
+	sort.Strings(notDeployed)
+	sort.Strings(notInGit)
+	sort.Strings(nested)
+	return notDeployed, notInGit, nested
+}
+
+// isAppNode reports whether a node stands for a Flux Kustomization or an
+// Argo CD Application (not a source, project or ApplicationSet).
+func isAppNode(n graph.Node) bool {
+	switch n.Type {
+	case "argoapp":
+		return true
+	case "source", "argoproject", "argoappset":
+		return false
+	}
+	return n.Technology != "argocd" && n.ID != "sync-root"
 }
 
 // enrichWorkloads evaluates the actual workload health per node.

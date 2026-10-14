@@ -13,7 +13,8 @@ clusterscope [flags]
 | `-dir` | `.` | Path to the cluster directory to visualize |
 | `-tech` | `flux` | Technology to parse: `flux` or `argocd` |
 | `-out` | stdout | Output file path (`.html`) |
-| `-root` | `.` | Root directory containing cluster subdirs |
+| `-root` | `.` | Root directory: one cluster, a directory of clusters, or a repo tree (see [Lab View](lab.md#cluster-discovery-and-labs)) |
+| `-lab` | `default` | Lab name for clusters whose path does not contain `clusters/<lab>/…` |
 | `-serve` | — | Start HTTP dashboard server (e.g. `:8080`) |
 | `-live` | `false` | Enrich graph with real-time status from the Kubernetes API |
 | `-kubeconfig` | — | Path to default kubeconfig file |

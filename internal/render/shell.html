@@ -138,6 +138,7 @@
   .health-dot.unknown { background: #444c56; }
   .health-dot.unreachable { background: transparent; border: 2px solid #f85149; }
   .cluster-meta.unreachable { color: #f85149; }
+  .lab-heading { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: #4a5568; padding: 0.6rem 1rem 0.2rem; }
 
   /* loading state */
   nav.sidebar ul.htmx-indicator { opacity: 0.5; }
@@ -316,6 +317,15 @@
     </div>
     <ul>
       <li>
+        <a href="#" onclick="loadLab();return false;" id="link-lab" aria-label="Open lab overview">
+          <span class="health-dot unknown" id="lab-dot"></span>
+          <div class="cluster-info">
+            <span class="cluster-name">Lab overview</span>
+            <span class="cluster-meta" id="lab-meta">desired vs. actual, all clusters</span>
+          </div>
+        </a>
+      </li>
+      <li>
         <a href="#" onclick="loadEndpoints();return false;" id="link-endpoints" aria-label="Open endpoints inventory">
           <span class="health-dot unknown" id="endpoints-dot"></span>
           <div class="cluster-info">
@@ -410,6 +420,7 @@ let recentPreviews = JSON.parse(localStorage.getItem('cs-recent-previews') || '[
 document.addEventListener("DOMContentLoaded", function () {
   loadClusters();
   loadEndpointSummary();
+  loadLabSummary();
   renderRecent();
 });
 
@@ -422,10 +433,17 @@ function loadClusters() {
         list.innerHTML = '<li style="padding:0.5rem 1rem;font-size:0.8rem;color:#4a5568;">No clusters found.</li>';
         return;
       }
-      clusters.sort((a, b) => a.name.localeCompare(b.name));
+      clusters.sort((a, b) => (a.lab || "").localeCompare(b.lab || "") || a.name.localeCompare(b.name));
       clusterNames = clusters.map(c => c.name);
+      const multiLab = new Set(clusters.map(c => c.lab || "")).size > 1;
+      let lastLab = null;
 
       list.innerHTML = clusters.map(c => {
+        let labHead = "";
+        if (multiLab && c.lab !== lastLab) {
+          lastLab = c.lab;
+          labHead = '<li class="lab-heading">' + escHtml(c.lab || "–") + '</li>';
+        }
         const techClass = c.tech === "argocd" ? "argocd" : "";
         const techLabel = c.tech === "argocd" ? "ArgoCD" : "Flux";
         const healthDot = getHealthDot(c);
@@ -433,7 +451,7 @@ function loadClusters() {
         if (c.nodeCount) meta.push(c.nodeCount + ' nodes');
         if (c.appCount) meta.push(c.appCount + ' apps');
         const liveMeta = getLiveMeta(c);
-        return `<li>
+        return labHead + `<li>
           <a href="#" onclick="loadCluster('${escHtml(c.name)}');return false;"
              id="link-${escHtml(c.name)}"
              aria-label="Open cluster ${escHtml(c.name)}">
@@ -511,6 +529,32 @@ function loadEndpointSummary() {
         d.routes.length + " routes" + (bad ? " · " + bad + " with problems" : "");
     })
     .catch(() => {});
+}
+
+function loadLabSummary() {
+  fetch("/api/lab")
+    .then(r => r.json())
+    .then(d => {
+      let errors = 0, warnings = 0;
+      d.labs.forEach(l => { errors += l.summary.errors; warnings += l.summary.warnings; });
+      document.getElementById("lab-dot").className = "health-dot " + (errors ? "degraded" : warnings ? "mixed" : "healthy");
+      const parts = [d.labs.length + (d.labs.length === 1 ? " lab" : " labs")];
+      if (errors) parts.push(errors + " errors");
+      if (warnings) parts.push(warnings + " warnings");
+      document.getElementById("lab-meta").textContent = parts.join(" · ");
+    })
+    .catch(() => {});
+}
+
+function loadLab() {
+  history.pushState({lab: true}, "", "/#lab");
+  showLab();
+}
+
+function showLab() {
+  document.querySelectorAll("nav.sidebar a").forEach(a => a.classList.remove("active"));
+  document.getElementById("link-lab").classList.add("active");
+  document.getElementById("main").innerHTML = '<iframe id="cluster-frame" src="/lab" title="Lab overview"></iframe>';
 }
 
 function loadEndpoints() {
@@ -630,6 +674,8 @@ window.addEventListener("popstate", function(e) {
     loadCluster(e.state.cluster);
   } else if (e.state && e.state.endpoints) {
     showEndpoints();
+  } else if (e.state && e.state.lab) {
+    showLab();
   }
 });
 
@@ -640,6 +686,8 @@ window.addEventListener("popstate", function(e) {
     setTimeout(() => loadCluster(decodeURIComponent(m[1])), 300);
   } else if (window.location.hash === "#endpoints") {
     showEndpoints();
+  } else if (window.location.hash === "#lab") {
+    showLab();
   }
 })();
 

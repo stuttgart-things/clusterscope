@@ -45,9 +45,11 @@ internal/
   repos/
     repos.go           # repos.yaml schema for git-sync mode
   scan/
-    scan.go            # Cluster directory discovery + tech detection
+    scan.go            # Cluster directory discovery (flat / nested, lab from path) + tech detection
   serve/
     serve.go           # HTTP server, file watcher, cluster cache
+    endpoints.go       # endpoint inventory API, probes, http_sd targets
+    lab.go             # lab view: findings, summary, /api/lab
 
 pkg/
   flux/

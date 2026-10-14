@@ -916,6 +916,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Releases
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1021,6 +1032,17 @@
     <span class="md-ellipsis">
       
         Code style
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Releases
       
     </span>
   </a>
@@ -1136,6 +1158,19 @@
 <li>No panics in library code — return errors</li>
 <li>Security: no credentials in HTML output, validate external inputs at boundaries</li>
 </ul>
+<h2 id="releases">Releases</h2>
+<p>Releases are cut with <a href="https://github.com/googleapis/release-please">release-please</a> from the conventional-commit history (<code>feat:</code> → minor, <code>fix:</code> → patch while &lt; 1.0):</p>
+<ol>
+<li>Every push to <code>main</code> updates the release pull request (version bump + <code>CHANGELOG.md</code>).</li>
+<li>Merging it tags <code>vX.Y.Z</code>, creates the GitHub release and dispatches <code>build-scan-image.yaml</code> at the tag.</li>
+<li>The tag build publishes:<ul>
+<li>image <code>ghcr.io/stuttgart-things/clusterscope:vX.Y.Z</code>, plus <code>latest</code> on the same digest</li>
+<li>kustomize bases <code>clusterscope-kustomize</code> and <code>clusterscope-kustomize-multi-repo</code> at <code>vX.Y.Z</code> (+ <code>latest</code>), <strong>pinned to the image <code>vX.Y.Z</code></strong></li>
+<li>binaries (goreleaser) attached to the release</li>
+</ul>
+</li>
+</ol>
+<p>Pushes to <code>main</code> publish the image as <code>&lt;short sha&gt;</code> and <code>main</code>; <code>latest</code> only moves on a release. <code>task trigger-release [TAG=vX.Y.Z]</code> republishes an existing tag.</p>
 
 
 

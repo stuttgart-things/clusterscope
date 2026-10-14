@@ -16,7 +16,7 @@
         <link rel="prev" href="../serve/">
       
       
-        <link rel="next" href="../pdf/">
+        <link rel="next" href="../endpoints/">
       
       
         
@@ -717,6 +717,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Endpoint Inventory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../pdf/" class="md-nav__link">
         
   
@@ -1247,7 +1275,7 @@
 <li><code>KUBECONFIG</code> follows standard kubectl conventions</li>
 <li><code>-kubeconfig</code> and <code>-kubeconfig-dir</code> are validated (must exist) before the server starts</li>
 <li>Live errors degrade to <code>status: "unknown"</code> — the server never crashes on live failures</li>
-<li>Only read access is needed on workload clusters (<code>get</code>/<code>list</code> on the Flux / Argo CD CRDs)</li>
+<li>Only read access is needed on workload clusters (<code>get</code>/<code>list</code> on the Flux / Argo CD CRDs, and <code>gateway.networking.k8s.io</code> for the <a href="../endpoints/">endpoint inventory</a>)</li>
 </ul>
 
 

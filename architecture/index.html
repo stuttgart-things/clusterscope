@@ -549,6 +549,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Endpoint Inventory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../pdf/" class="md-nav__link">
         
   
@@ -1073,7 +1101,8 @@
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  ├─ resolve kubeconfig: -kubeconfig-map → -kubeconfig-dir/&lt;cluster&gt; → default (self only)
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  ├─ GET /version                                     →  reachable | unreachable | unconfigured
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  ├─ Flux:   list kustomizations + gitrepositories    →  status from Ready conditions
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  └─ ArgoCD: list applications                        →  status from health + sync
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  ├─ ArgoCD: list applications                        →  status from health + sync
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>  └─ Gateway API: list gateways + httproutes          →  endpoint inventory (+ probe.ProbeAll with -probe)
 </code></pre></div>
 <h2 id="technology-detection">Technology detection</h2>
 <p><code>internal/scan.DetectTech(dir)</code> reads YAML files in a directory and returns:</p>

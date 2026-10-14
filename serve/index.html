@@ -695,6 +695,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../lab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lab View
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../pdf/" class="md-nav__link">
         
   
@@ -1012,10 +1040,10 @@
 <p>Open <code>http://localhost:8080</code> in your browser.</p>
 <h2 id="how-it-works">How it works</h2>
 <ol>
-<li>On startup, all subdirectories of <code>-root</code> are scanned and parsed</li>
+<li>On startup, the cluster directories below <code>-root</code> are discovered (flat or nested <code>clusters/&lt;lab&gt;/…/&lt;cluster&gt;</code>, see <a href="../lab/#cluster-discovery-and-labs">Lab View</a>) and parsed</li>
 <li>Technology is auto-detected per cluster (Flux vs ArgoCD)</li>
-<li>A file watcher monitors <code>-root</code> for YAML changes</li>
-<li>Changes are debounced (500ms) and trigger a re-scan of the affected cluster</li>
+<li>A file watcher monitors <code>-root</code>, the cluster directories and the directories in between</li>
+<li>Changes are debounced (500ms) and trigger a re-scan; removed directories disappear</li>
 <li>The <code>/api/clusters</code> endpoint returns a JSON summary of all clusters</li>
 <li><code>/clusters/&lt;name&gt;</code> returns the HTML profile for a specific cluster</li>
 </ol>
@@ -1039,6 +1067,26 @@
 <tr>
 <td><code>/clusters/&lt;name&gt;</code></td>
 <td>HTML profile for cluster <code>&lt;name&gt;</code></td>
+</tr>
+<tr>
+<td><code>/lab</code></td>
+<td><a href="../lab/">Lab view</a>: all clusters per lab, desired vs. actual, findings</td>
+</tr>
+<tr>
+<td><code>/api/lab</code></td>
+<td>Lab view as JSON</td>
+</tr>
+<tr>
+<td><code>/endpoints</code></td>
+<td><a href="../endpoints/">Endpoint inventory</a> (live mode)</td>
+</tr>
+<tr>
+<td><code>/api/endpoints</code></td>
+<td>Endpoint inventory as JSON</td>
+</tr>
+<tr>
+<td><code>/api/targets</code></td>
+<td>Route URLs in Prometheus <code>http_sd</code> format</td>
 </tr>
 <tr>
 <td><code>/preview/&lt;name&gt;?repo=&lt;url&gt;&amp;pr=&lt;N&gt;</code></td>

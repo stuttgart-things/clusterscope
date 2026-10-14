@@ -641,6 +641,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#workload-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workload health
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-sources" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -668,6 +679,17 @@
     <span class="md-ellipsis">
       
         ArgoCD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workloads
       
     </span>
   </a>
@@ -1024,6 +1046,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#workload-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workload health
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#data-sources" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1051,6 +1084,17 @@
     <span class="md-ellipsis">
       
         ArgoCD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workloads
       
     </span>
   </a>
@@ -1228,6 +1272,103 @@
 </tr>
 </tbody>
 </table>
+<h2 id="workload-health">Workload health</h2>
+<p>The GitOps status only reflects the <strong>last reconcile</strong>: Flux evaluates health checks during a reconcile, so with <code>interval: 1h</code> a <code>Ready=True</code> can be an hour old while the pods behind it crash-loop. clusterscope therefore evaluates the actual workloads of every node at each refresh.</p>
+<p><strong>Which workloads belong to a node</strong></p>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Objects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flux Kustomization</td>
+<td><code>.status.inventory</code> — Deployments, StatefulSets and DaemonSets listed directly, plus all workloads labelled <code>helm.toolkit.fluxcd.io/name</code> / <code>-namespace</code> for every HelmRelease in the inventory</td>
+</tr>
+<tr>
+<td><code>sync-root</code> (flux-operator)</td>
+<td>the <code>FluxInstance</code> inventory (the Flux controllers)</td>
+</tr>
+<tr>
+<td>Argo CD Application</td>
+<td><code>.status.resources</code></td>
+</tr>
+</tbody>
+</table>
+<p>Nested Kustomizations are not followed: a Kustomization that only creates other Kustomizations reports <code>n/a</code>, its children report their own workloads.</p>
+<p><strong>Per workload</strong>: available / desired replicas (Deployment <code>availableReplicas</code>, StatefulSet <code>availableReplicas</code>/<code>readyReplicas</code>, DaemonSet <code>numberAvailable</code> vs. <code>desiredNumberScheduled</code>) and the pods matched by its selector:</p>
+<ul>
+<li>containers waiting in <code>CrashLoopBackOff</code>, <code>ImagePullBackOff</code>, <code>ErrImagePull</code>, <code>CreateContainerConfigError</code>, …</li>
+<li>containers that are not ready and have restarted (<code>restarting (last exit: Error, code 1)</code>) — catches a crash loop in the seconds between two back-offs</li>
+<li>pods <code>Pending</code> for more than 2 minutes</li>
+<li>container restarts since the previous refresh</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Workload status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>healthy</code></td>
+<td>all workloads have all desired replicas available, no pod issues (scaled to 0 counts as healthy)</td>
+</tr>
+<tr>
+<td><code>degraded</code></td>
+<td>some replicas missing, or pod issues</td>
+</tr>
+<tr>
+<td><code>down</code></td>
+<td>no workload has a single available replica</td>
+</tr>
+<tr>
+<td><code>n/a</code></td>
+<td>the node manages no Deployments, StatefulSets or DaemonSets</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Drift</strong> is set when the GitOps controller reports the node <code>ready</code> while its workloads are <code>degraded</code>/<code>down</code> or one of its HelmReleases is not ready — exactly the state Flux hides until the next reconcile.</p>
+<p>Shown in:</p>
+<ul>
+<li>the dependency graph — <code>ready/total</code> badge on each node, dashed border on drift</li>
+<li>the detail panel — every workload with replicas, pod issues and restarts, every HelmRelease with its Ready condition, and the age of the last <code>Ready</code> transition next to the interval</li>
+<li>the dashboard sidebar — <code>n degraded · n down · n drift</code> per cluster</li>
+<li><code>GET /api/clusters</code> — <code>workloadSummary</code>, <code>drift</code>, <code>workloadError</code>; the node JSON carries <code>workloads</code></li>
+<li><code>/metrics</code>:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Labels</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>clusterscope_app_workload_status</code></td>
+<td><code>cluster</code>, <code>app</code>, <code>status</code></td>
+<td><code>1</code> for the current status (<code>healthy</code>, <code>degraded</code>, <code>down</code>, <code>n/a</code>), <code>0</code> for the others</td>
+</tr>
+<tr>
+<td><code>clusterscope_app_gitops_drift</code></td>
+<td><code>cluster</code>, <code>app</code></td>
+<td><code>1</code> on drift, else <code>0</code></td>
+</tr>
+</tbody>
+</table>
+<p>Alert on these in Prometheus instead of watching the UI, e.g.:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">alert</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GitOpsDrift</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">expr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clusterscope_app_gitops_drift == 1</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">for</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15m</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">summary</span><span class="p">:</span><span class="w"> </span><span class="s">"{{</span><span class="nv"> </span><span class="s">$labels.app</span><span class="nv"> </span><span class="s">}}</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">$labels.cluster</span><span class="nv"> </span><span class="s">}}</span><span class="nv"> </span><span class="s">is</span><span class="nv"> </span><span class="s">GitOps-ready</span><span class="nv"> </span><span class="s">but</span><span class="nv"> </span><span class="s">its</span><span class="nv"> </span><span class="s">workloads</span><span class="nv"> </span><span class="s">are</span><span class="nv"> </span><span class="s">not"</span>
+</code></pre></div>
+<p>If workloads or pods cannot be listed (missing RBAC), the cluster shows <code>workloads unreadable</code> and <code>workloadError</code> — GitOps status is still reported.</p>
 <h2 id="data-sources">Data sources</h2>
 <h3 id="flux">Flux</h3>
 <table>
@@ -1243,8 +1384,16 @@
 <td><code>kustomize.toolkit.fluxcd.io</code></td>
 </tr>
 <tr>
-<td>GitRepositories</td>
+<td>GitRepositories, OCIRepositories</td>
 <td><code>source.toolkit.fluxcd.io</code></td>
+</tr>
+<tr>
+<td>HelmReleases</td>
+<td><code>helm.toolkit.fluxcd.io</code></td>
+</tr>
+<tr>
+<td>FluxInstances (status of the <code>sync-root</code> node)</td>
+<td><code>fluxcd.controlplane.io</code></td>
 </tr>
 </tbody>
 </table>
@@ -1263,10 +1412,29 @@
 </tr>
 </tbody>
 </table>
+<h3 id="workloads">Workloads</h3>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>API Group</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Deployments, StatefulSets, DaemonSets</td>
+<td><code>apps</code></td>
+</tr>
+<tr>
+<td>Pods</td>
+<td>core</td>
+</tr>
+</tbody>
+</table>
 <h2 id="ui-changes-in-live-mode">UI changes in live mode</h2>
 <ul>
 <li>Node border color reflects live status (instead of type color)</li>
-<li>Clicking a node shows <code>Status</code>, <code>Message</code>, and <code>UpdatedAt</code> in the detail panel</li>
+<li>Clicking a node shows <code>Status</code>, <code>Message</code>, the last transition and the <a href="#workload-health">workload health</a> in the detail panel</li>
 <li>A <code>🟢 Live · &lt;timestamp&gt;</code> badge appears in the cluster profile header</li>
 </ul>
 <h2 id="security">Security</h2>
@@ -1275,7 +1443,7 @@
 <li><code>KUBECONFIG</code> follows standard kubectl conventions</li>
 <li><code>-kubeconfig</code> and <code>-kubeconfig-dir</code> are validated (must exist) before the server starts</li>
 <li>Live errors degrade to <code>status: "unknown"</code> — the server never crashes on live failures</li>
-<li>Only read access is needed on workload clusters (<code>get</code>/<code>list</code> on the Flux / Argo CD CRDs, and <code>gateway.networking.k8s.io</code> for the <a href="../endpoints/">endpoint inventory</a>)</li>
+<li>Only read access is needed on workload clusters (<code>get</code>/<code>list</code> on the Flux / Argo CD CRDs, <code>apps</code> workloads and pods for <a href="#workload-health">workload health</a>, and <code>gateway.networking.k8s.io</code> for the <a href="../endpoints/">endpoint inventory</a>)</li>
 </ul>
 
 

@@ -49,6 +49,7 @@ func main() {
 	probeTimeout := flag.Duration("probe-timeout", 5*time.Second, "per-URL probe timeout (used with -probe)")
 	configFile := flag.String("config", "", "YAML/JSON file with several roots (repos) and per-directory cluster name / lab overrides; replaces -root (used with -serve)")
 	labName := flag.String("lab", "", "lab name for clusters whose path does not contain clusters/<lab>/…/<cluster> (default \"default\", used with -serve)")
+	clusterbookURL := flag.String("clusterbook-url", "", "clusterbook REST API whose IP / DNS allocations are matched against the lab's clusters (lab: -lab); more than one via -config (used with -serve)")
 	refreshSeconds := flag.Int("refresh", 30, "live status refresh interval in seconds (used with -live)")
 	previewRoot := flag.String("preview-root", "", "directory containing PR head ref cluster files for diff preview (used with -serve)")
 
@@ -146,6 +147,7 @@ Examples:
 			PreviewRoot:    *previewRoot,
 			Lab:            *labName,
 			Config:         scanCfg,
+			ClusterbookURL: *clusterbookURL,
 		}
 		if err := serve.Start(*serveAddr, *root, opts); err != nil {
 			fmt.Fprintf(os.Stderr, "serve error: %v\n", err)

@@ -57,8 +57,25 @@ The file watcher covers root, every cluster directory and the directories in bet
 | cluster directories (Git) | desired state: clusters, Kustomizations / Applications |
 | `-kubeconfig-dir` / `-kubeconfig-map` | which clusters can be reached |
 | live mode | GitOps status, [workload health](live.md#workload-health), [endpoints](endpoints.md) |
+| clusterbook (`-clusterbook-url`, `clusterbooks:`) | IP / DNS allocation per cluster |
 
-clusterbook (IPs/DNS) and machinery (ordered clusters) are planned as further sources.
+machinery (ordered clusters) is planned as a further source.
+
+### clusterbook
+
+A [clusterbook](https://github.com/stuttgart-things/clusterbook) REST API (`/api/v1/clusters`) lists the IP / DNS allocations. One clusterbook per lab: `-clusterbook-url` (lab: `-lab`), or several in the `-config` file:
+
+```yaml
+clusterbooks:
+  - url: https://clusterbook.infra.sthings-vsphere.labul.sva.de
+    lab: labul
+    names:                   # clusterbook name → cluster name (optional)
+      infra: infra-sthings
+```
+
+An allocation belongs to a cluster of its lab by, in order: `names`, the same name, the domain — the one cluster whose HTTPRoute hostnames lie under the allocated FQDN (`*.infra.sthings-vsphere.labul.sva.de` → `infra-sthings`). `names` is only needed where a cluster has no routes yet. The lab view shows the addresses and FQDN per cluster.
+
+clusterbook is read at startup and every 5 minutes. When it cannot be read, the lab shows `source unavailable` and keeps the last result.
 
 ## Findings
 
@@ -77,8 +94,11 @@ clusterbook (IPs/DNS) and machinery (ordered clusters) are planned as further so
 | warning | `route` | HTTPRoute not Accepted / ResolvedRefs |
 | warning | `workloads unreadable` | workloads/pods could not be listed (RBAC) |
 | warning | `duplicate name` | second directory with an existing cluster name |
+| warning | `IP without cluster` | allocation in clusterbook that no cluster of the lab matches (leftover of a torn-down or test cluster) |
+| warning | `source unavailable` | clusterbook not readable (last result kept) |
 | info | `no GitOps yet` | cluster directory and a running cluster, but no Flux / Argo CD objects in either (e.g. k3s set up, bootstrap pending) |
 | info | `not in Git` (object) | Kustomization / Application in the cluster without any GitOps manager: applied by hand |
+| info | `no IP allocation` | cluster of a lab with a clusterbook, but no allocation for it |
 
 Kustomizations / Applications in the cluster that are not in the cluster directory but were created by another GitOps object (labels `kustomize.toolkit.fluxcd.io/name`, `helm.toolkit.fluxcd.io/name`, `fluxcd.controlplane.io/name`, `app.kubernetes.io/instance`, annotation `argocd.argoproj.io/tracking-id`, or an owner reference) are **nested**: they are in Git elsewhere. They are counted per cluster (`+N nested`), not reported.
 
@@ -99,10 +119,14 @@ Kustomizations / Applications in the cluster that are not in the cluster directo
     "clusters": [{"name": "infra-sthings", "managed": true, "path": "labul/vsphere/infra-sthings",
                   "tech": "flux", "reachability": "reachable", "apps": 6, "nested": 1,
                   "gitops": {"ready": 17}, "workloads": {"healthy": 10, "degraded": 1, "n/a": 4},
-                  "drift": 1, "routes": 5, "routesOK": 5, "findings": 1}],
+                  "drift": 1, "routes": 5, "routesOK": 5, "findings": 1,
+                  "addresses": ["10.31.101.6"], "fqdn": "*.infra.sthings-vsphere.labul.sva.de",
+                  "clusterbookName": "infra"}],
     "findings": [{"severity": "error", "kind": "drift", "cluster": "infra-sthings", "object": "nfs-csi",
                   "message": "GitOps ready, workloads degraded 2/3 — snapshot-controller-…: CrashLoopBackOff"}]
-  }]
+  }],
+  "sources": [{"kind": "clusterbook", "url": "https://clusterbook.infra.sthings-vsphere.labul.sva.de",
+               "ok": true, "records": 7, "fetchedAt": "2026-10-15T04:25:58Z"}]
 }
 ```
 

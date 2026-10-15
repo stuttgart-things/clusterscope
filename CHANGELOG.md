@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.25.0](https://github.com/stuttgart-things/clusterscope/compare/v0.24.0...v0.25.0) (2026-10-15)
+
+
+### Features
+
+* **lab:** clusterbook as cluster source ([#78](https://github.com/stuttgart-things/clusterscope/issues/78)) ([528f02e](https://github.com/stuttgart-things/clusterscope/commit/528f02ec5141a8240cde74e3e41eee0267783c30))
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/vektah/gqlparser/v2 to v2.5.62 ([#65](https://github.com/stuttgart-things/clusterscope/issues/65)) ([595c6c6](https://github.com/stuttgart-things/clusterscope/commit/595c6c63100f850e77056fb57a9234a57defe103))
+
 ## [0.24.0](https://github.com/stuttgart-things/clusterscope/compare/v0.23.1...v0.24.0) (2026-10-14)
 
 

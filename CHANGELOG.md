@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1](https://github.com/stuttgart-things/clusterscope/compare/v0.25.0...v0.25.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **lab:** do not list a cluster with a directory as kubeconfig only ([#81](https://github.com/stuttgart-things/clusterscope/issues/81)) ([4eae72a](https://github.com/stuttgart-things/clusterscope/commit/4eae72a4b604803705784ea4917b2f0701d9d3a5))
+
 ## [0.25.0](https://github.com/stuttgart-things/clusterscope/compare/v0.24.0...v0.25.0) (2026-10-15)
 
 

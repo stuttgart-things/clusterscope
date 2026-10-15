@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/stuttgart-things/clusterscope/compare/v0.25.1...v0.26.0) (2026-10-15)
+
+
+### Features
+
+* **endpoints:** opt routes out of probing with an annotation ([#85](https://github.com/stuttgart-things/clusterscope/issues/85)) ([878e358](https://github.com/stuttgart-things/clusterscope/commit/878e35829848e97743b0ce37a3d9ba23ef705df8))
+
 ## [0.25.1](https://github.com/stuttgart-things/clusterscope/compare/v0.25.0...v0.25.1) (2026-10-15)
 
 

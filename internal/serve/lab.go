@@ -165,7 +165,11 @@ func (s *Server) labSnapshot() LabResponse {
 	unmanagedLab := s.unmanagedLab()
 	unames := make([]string, 0, len(s.unmanaged))
 	for n := range s.unmanaged {
-		unames = append(unames, n)
+		// The directory may have appeared since the last live refresh
+		// (e.g. git-sync's first clone after a restart).
+		if !nameSet[n] {
+			unames = append(unames, n)
+		}
 	}
 	sort.Strings(unames)
 	for _, name := range unames {

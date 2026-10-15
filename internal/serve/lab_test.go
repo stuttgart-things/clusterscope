@@ -148,6 +148,26 @@ func TestLabMetricsAndAPI(t *testing.T) {
 	}
 }
 
+func TestLabUnmanagedWithDirectory(t *testing.T) {
+	s := labTestServer()
+	// last live refresh ran before the directory of "platform" was scanned
+	s.unmanaged["platform"] = live.ClusterStatus{Reachability: live.Reachable}
+	n := 0
+	for _, l := range s.labSnapshot().Labs {
+		for _, c := range l.Clusters {
+			if c.Name == "platform" {
+				n++
+				if !c.Managed {
+					t.Error("platform listed as kubeconfig only")
+				}
+			}
+		}
+	}
+	if n != 1 {
+		t.Errorf("platform listed %d times", n)
+	}
+}
+
 func TestUnmanagedLab(t *testing.T) {
 	s := labTestServer()
 	s.opts.Lab = ""

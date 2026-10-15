@@ -15,7 +15,7 @@ Point it at a Flux or ArgoCD cluster folder and get a standalone HTML file you c
 - **PR preview** — visual diff of what a pull request changes in the cluster graph
 - **Live mode** — real-time reconciliation status from a running cluster, per-cluster kubeconfigs and reachability, actual workload health per app with GitOps drift detection
 - **Lab view** — all clusters of a lab (or several labs) with desired vs. actual state and every mismatch as a finding
-- **Endpoint inventory** — HTTPRoutes and Gateways of all clusters with Accepted/ResolvedRefs status, optional reachability probe, and Prometheus `http_sd` targets for blackbox-exporter
+- **Endpoint inventory** — HTTPRoutes and Gateways of all clusters with Accepted/ResolvedRefs status, optional reachability probe (routes can opt out with `clusterscope.stuttgart-things.com/probe: "false"`), and Prometheus `http_sd` targets for blackbox-exporter
 - HTTP dashboard with HTMX-driven multi-cluster view
 - PDF export via headless Chromium
 - Prometheus metrics endpoint

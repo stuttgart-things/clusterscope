@@ -61,7 +61,9 @@ func (s *Server) updateEndpoints(name string, st live.ClusterStatus) {
 	var urls []string
 	if cur.ep != nil {
 		for _, r := range cur.ep.Routes {
-			urls = append(urls, r.URLs...)
+			if !r.NoProbe {
+				urls = append(urls, r.URLs...)
+			}
 		}
 	}
 	results := s.prober.ProbeAll(context.Background(), urls)
@@ -137,6 +139,9 @@ func (s *Server) endpointsSnapshot(cluster string) EndpointsResponse {
 			for _, r := range state.ep.Routes {
 				row := RouteRow{Cluster: name, Stale: state.stale, Route: r}
 				for _, u := range r.URLs {
+					if r.NoProbe {
+						break
+					}
 					if res, ok := s.probes[name][u]; ok {
 						row.Probes = append(row.Probes, res)
 					}
@@ -167,6 +172,9 @@ func (s *Server) handleAPItargets(w http.ResponseWriter, r *http.Request) {
 	snap := s.endpointsSnapshot(r.URL.Query().Get("cluster"))
 	targets := []httpSDTarget{}
 	for _, rt := range snap.Routes {
+		if rt.NoProbe {
+			continue
+		}
 		for _, u := range rt.URLs {
 			labels := map[string]string{
 				"cluster":   rt.Cluster,

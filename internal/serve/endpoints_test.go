@@ -120,3 +120,31 @@ func TestHandleAPItargets(t *testing.T) {
 		t.Errorf("target: %+v", tg)
 	}
 }
+
+func TestHandleAPItargets_SkipsNoProbe(t *testing.T) {
+	s := newTestServer(map[string]*graph.ClusterProfile{"prod": {}}, map[string]string{}, true)
+	s.liveStatus["prod"] = live.ClusterStatus{Reachability: live.Reachable}
+	ep := testEndpoints()
+	ep.Routes = append(ep.Routes, live.Route{Namespace: "esp", Name: "acme", Hostnames: []string{"dev.lab"},
+		URLs: []string{"http://dev.lab/.well-known/acme-challenge/"}, NoProbe: true, Accepted: "True", ResolvedRefs: "True"})
+	s.endpoints["prod"] = endpointState{ep: ep, collectedAt: time.Now()}
+	// A result left over from before the annotation must not show up either.
+	s.probes["prod"] = map[string]probe.Result{"http://dev.lab/.well-known/acme-challenge/": {URL: "http://dev.lab/.well-known/acme-challenge/", Stage: "http"}}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/targets", nil)
+	w := httptest.NewRecorder()
+	s.handleAPItargets(w, req)
+	var targets []httpSDTarget
+	if err := json.NewDecoder(w.Body).Decode(&targets); err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 1 || targets[0].Labels["route"] != "vault" {
+		t.Errorf("targets: %+v", targets)
+	}
+
+	for _, r := range s.endpointsSnapshot("prod").Routes {
+		if r.Name == "acme" && (len(r.Probes) != 0 || !r.NoProbe || len(r.URLs) != 1) {
+			t.Errorf("opted-out route: %+v", r)
+		}
+	}
+}

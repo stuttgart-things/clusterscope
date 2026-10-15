@@ -189,9 +189,11 @@ function render() {
         : (r.hostnames || []).map(h => `<span class="mono">${esc(h)}</span>`).join("<br>") || '<span class="muted">—</span>';
       const wild = (r.hostnames || []).filter(h => h.includes("*"));
       const gws = (r.parents || []).map(p => `<span class="mono">${esc(p.gateway)}</span>${p.message ? `<span class="sub">${esc(p.message)}</span>` : ""}`).join("<br>");
-      const probes = data.probing
-        ? ((r.probes || []).map(probePill).join("") || '<span class="muted">—</span>')
-        : '<span class="muted" title="start with -probe to enable">off</span>';
+      const probes = !data.probing
+        ? '<span class="muted" title="start with -probe to enable">off</span>'
+        : r.noProbe
+        ? '<span class="pill unk" title="excluded by annotation clusterscope.stuttgart-things.com/probe: &quot;false&quot;">not probed</span>'
+        : ((r.probes || []).map(probePill).join("") || '<span class="muted">—</span>');
       return `<tr class="${probs.length ? "problem" : ""} ${r.stale ? "stale" : ""}" title="${esc(probs.join(", "))}">
         <td><span class="pill cluster">${esc(r.cluster)}</span>${r.stale ? '<span class="sub">stale</span>' : ""}</td>
         <td>${hosts}${wild.length && r.urls && r.urls.length ? `<span class="sub">${wild.map(esc).join(", ")}</span>` : ""}${r.paths && r.paths.length > 1 ? `<span class="sub">paths: ${r.paths.map(esc).join(", ")}</span>` : ""}</td>

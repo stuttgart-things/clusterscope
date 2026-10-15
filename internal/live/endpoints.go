@@ -59,6 +59,9 @@ type Route struct {
 	// URLs are the probe-able URLs (no wildcard hostnames), scheme taken
 	// from the parent Gateway's listener.
 	URLs []string `json:"urls,omitempty"`
+	// NoProbe: the route opted out of probing with ProbeAnnotation. Its URLs
+	// stay listed, but are neither probed nor offered to blackbox-exporter.
+	NoProbe bool `json:"noProbe,omitempty"`
 	// App is the owning GitOps unit, from Flux / Argo CD labels.
 	App string `json:"app,omitempty"`
 	// Accepted / ResolvedRefs aggregate all parents: "True" only if every
@@ -66,6 +69,11 @@ type Route struct {
 	Accepted     string `json:"accepted"`
 	ResolvedRefs string `json:"resolvedRefs"`
 }
+
+// ProbeAnnotation set to "false" on an HTTPRoute excludes its URLs from the
+// probe and from /api/targets — for routes that are expected not to answer,
+// such as an ACME HTTP-01 route whose solver only runs during enrolment.
+const ProbeAnnotation = "clusterscope.stuttgart-things.com/probe"
 
 // RouteParent is one parentRef of a route with its status conditions.
 type RouteParent struct {
@@ -212,6 +220,7 @@ func toRoute(r httpRouteObj, gateways map[string]gatewayObj, technology string) 
 		Name:      r.Metadata.Name,
 		Hostnames: r.Spec.Hostnames,
 		App:       owningApp(r.Metadata, technology),
+		NoProbe:   strings.EqualFold(strings.TrimSpace(r.Metadata.Annotations[ProbeAnnotation]), "false"),
 	}
 	if rt.Hostnames == nil {
 		rt.Hostnames = []string{}

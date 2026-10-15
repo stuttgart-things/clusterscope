@@ -57,6 +57,21 @@ While a cluster's API server is **unreachable**, its last known routes are kept 
 
 The probe is a dashboard snapshot. Continuous probing and alerting belong in Prometheus + blackbox-exporter — see `/api/targets`.
 
+### Excluding a route
+
+Some routes are not meant to answer all the time — an ACME HTTP-01 route, for example, whose solver only listens while a certificate is issued. Annotate them to skip the probe:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: piezo-a-acme
+  annotations:
+    clusterscope.stuttgart-things.com/probe: "false"
+```
+
+The route and its URLs stay in the inventory (marked *not probed*), but they are not probed, raise no `endpoint-down` finding and are left out of `/api/targets` — so blackbox-exporter does not alert on them either. Any other value, or no annotation, probes as usual.
+
 ## API
 
 ### `GET /api/endpoints[?cluster=<name>]`

@@ -224,3 +224,30 @@ func TestToRoute_ProbesRootWhenMatched(t *testing.T) {
 		t.Errorf("urls: %v, want root", rt.URLs)
 	}
 }
+
+func TestToRoute_ProbeAnnotation(t *testing.T) {
+	for _, tt := range []struct {
+		annotations string
+		want        bool
+	}{
+		{``, false},
+		{`,"annotations":{"clusterscope.stuttgart-things.com/probe":"false"}`, true},
+		{`,"annotations":{"clusterscope.stuttgart-things.com/probe":" False "}`, true},
+		{`,"annotations":{"clusterscope.stuttgart-things.com/probe":"true"}`, false},
+	} {
+		var r httpRouteObj
+		raw := `{"metadata":{"name":"acme","namespace":"esp"` + tt.annotations + `},"spec":{"hostnames":["dev.lab"],"rules":[
+			{"matches":[{"path":{"type":"PathPrefix","value":"/.well-known/acme-challenge/"}}]}]}}`
+		if err := json.Unmarshal([]byte(raw), &r); err != nil {
+			t.Fatal(err)
+		}
+		rt := toRoute(r, nil, "flux")
+		if rt.NoProbe != tt.want {
+			t.Errorf("%s: NoProbe = %v, want %v", tt.annotations, rt.NoProbe, tt.want)
+		}
+		// The URL stays listed either way.
+		if len(rt.URLs) != 1 {
+			t.Errorf("%s: urls %v", tt.annotations, rt.URLs)
+		}
+	}
+}

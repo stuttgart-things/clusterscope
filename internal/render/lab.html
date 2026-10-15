@@ -96,6 +96,7 @@ const KIND_LABEL = {
   "gitops-failed": "GitOps failed", "drift": "drift", "workloads-down": "workloads down",
   "workloads-degraded": "workloads degraded", "not-deployed": "not deployed", "not-in-git": "not in Git",
   "route-not-accepted": "route", "endpoint-down": "endpoint down", "no-gitops": "no GitOps yet",
+  "orphan-allocation": "IP without cluster", "no-allocation": "no IP allocation", "source-unavailable": "source unavailable",
 };
 
 function esc(s) {
@@ -134,6 +135,12 @@ function countPills(m, order, cls) {
   return order.filter(k => m[k]).map(k => `<span class="pill ${cls[k]||"unk"}">${m[k]} ${esc(k)}</span>`).join("");
 }
 
+function allocation(c) {
+  if (!c.addresses || !c.addresses.length) return `<span class="muted">–</span>`;
+  const sub = [c.fqdn, c.clusterbookName ? `clusterbook: ${c.clusterbookName}` : ""].filter(Boolean).join(" · ");
+  return `<span class="mono">${c.addresses.map(esc).join(", ")}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}`;
+}
+
 function sevVisible(s) {
   const f = els.sev.value;
   if (!f) return true;
@@ -146,6 +153,7 @@ function render() {
   const labFilter = els.lab.value;
   let shown = 0, total = 0;
   const out = [];
+  const books = (data.sources || []).some(x => x.kind === "clusterbook");
   for (const lab of data.labs) {
     if (labFilter && lab.name !== labFilter) continue;
     const s = lab.summary;
@@ -167,7 +175,7 @@ function render() {
     const clusters = lab.clusters.filter(c => !c.noGitOps && match(c));
     const other = lab.clusters.filter(c => c.noGitOps && match(c));
     html += `<h3>Clusters</h3><div class="table-wrap"><table><thead><tr>
-      <th>Cluster</th><th>Reachability</th><th>Apps</th><th>GitOps</th><th>Workloads</th><th>Endpoints</th><th>Findings</th>
+      <th>Cluster</th><th>Reachability</th><th>Apps</th><th>GitOps</th><th>Workloads</th><th>Endpoints</th>${books ? "<th>IP / DNS</th>" : ""}<th>Findings</th>
       </tr></thead><tbody>`;
     html += clusters.length ? clusters.map(c => `<tr>
         <td>${clusterLink(c.name, c.managed)}<span class="sub">${c.managed ? esc(c.path) : "kubeconfig only — no cluster directory"}</span></td>
@@ -176,14 +184,17 @@ function render() {
         <td>${c.noGitOpsYet ? `<span class="pill unk" title="cluster runs, no Flux / Argo CD yet">no GitOps yet</span>` : countPills(c.gitops, ["ready","progressing","failed","unknown"], {ready:"ok",progressing:"warn",failed:"bad"})}</td>
         <td>${countPills(c.workloads, ["healthy","degraded","down"], {healthy:"ok",degraded:"warn",down:"bad"})}${c.drift ? `<span class="pill bad">${c.drift} drift</span>` : ""}</td>
         <td class="num">${c.routes ? `${c.routesOK}/${c.routes}` : `<span class="muted">–</span>`}</td>
+        ${books ? `<td>${allocation(c)}</td>` : ""}
         <td class="num">${c.findings ? `<span class="pill ${c.findings ? "warn" : ""}">${c.findings}</span>` : `<span class="pill ok">0</span>`}</td>
-      </tr>`).join("") : `<tr><td colspan="7" class="empty">No clusters match.</td></tr>`;
+      </tr>`).join("") : `<tr><td colspan="${books ? 8 : 7}" class="empty">No clusters match.</td></tr>`;
     html += other.map(c => `<tr class="other">
         <td><span class="mono muted">${esc(c.name)}</span><span class="sub">${esc(c.path)}</span></td>
-        <td colspan="6" class="muted">no GitOps objects and no reachable cluster — not counted as a cluster</td>
+        <td colspan="${books ? 7 : 6}" class="muted">no GitOps objects and no reachable cluster — not counted as a cluster</td>
       </tr>`).join("");
     html += `</tbody></table></div>`;
 
+    // Only clusters with a directory have a page of their own.
+    const pages = new Set(lab.clusters.filter(c => c.managed).map(c => c.name));
     total += lab.findings.length;
     const findings = lab.findings.filter(f => sevVisible(f.severity) &&
       (!q || [f.cluster, f.object, f.message, f.kind].join(" ").toLowerCase().includes(q)));
@@ -193,7 +204,7 @@ function render() {
     html += findings.length ? findings.map(f => `<tr class="sev-${esc(f.severity)}">
         <td><span class="pill ${f.severity === "error" ? "bad" : f.severity === "warning" ? "warn" : "info"}">${esc(f.severity)}</span></td>
         <td>${esc(KIND_LABEL[f.kind] || f.kind)}</td>
-        <td>${clusterLink(f.cluster, f.kind !== "unmanaged-cluster" && f.kind !== "duplicate-name")}</td>
+        <td>${clusterLink(f.cluster, f.kind !== "duplicate-name" && pages.has(f.cluster))}</td>
         <td class="mono">${esc(f.object || "")}</td>
         <td class="msg">${esc(f.message)}</td>
       </tr>`).join("") : `<tr><td colspan="5" class="empty">${lab.findings.length ? "No findings match the filter." : "No findings — desired and actual state match."}</td></tr>`;
@@ -217,8 +228,9 @@ function load() {
     els.lab.innerHTML = `<option value="">All labs</option>` +
       d.labs.map(l => `<option value="${esc(l.name)}">${esc(l.name)}</option>`).join("");
     els.lab.value = d.labs.some(l => l.name === want) ? want : "";
+    const src = (d.sources || []).map(x => `${x.kind} ${x.ok ? "ok" : "unavailable"}`).join(" · ");
     document.getElementById("updated").textContent = "updated " + new Date(d.generatedAt).toLocaleTimeString() +
-      (d.live ? "" : " · live mode off — Git only");
+      (d.live ? "" : " · live mode off — Git only") + (src ? " · " + src : "");
     render();
   }).catch(e => {
     document.getElementById("labs").innerHTML = `<div class="empty">Failed to load lab view: ${esc(e)}</div>`;

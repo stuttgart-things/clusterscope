@@ -158,7 +158,11 @@ func TestLoadConfig(t *testing.T) {
 	if c, err := LoadConfig(j); err != nil || c.Roots[0].Lab != "labul" {
 		t.Errorf("json: %+v %v", c, err)
 	}
-	for _, bad := range []string{"roots: []\n", "roots:\n  - name: x\n", "roots: [\n"} {
+	b := write("b.yaml", "roots: [{path: /a}]\nclusterbooks:\n  - url: https://book\n    lab: labul\n    names: {infra: infra-sthings}\n")
+	if c, err := LoadConfig(b); err != nil || len(c.Clusterbooks) != 1 || c.Clusterbooks[0].Names["infra"] != "infra-sthings" {
+		t.Errorf("clusterbooks: %+v %v", c, err)
+	}
+	for _, bad := range []string{"roots: []\n", "roots:\n  - name: x\n", "roots: [\n", "roots: [{path: /a}]\nclusterbooks: [{lab: x}]\n"} {
 		if _, err := LoadConfig(write("bad.yaml", bad)); err == nil {
 			t.Errorf("%q: expected error", bad)
 		}

@@ -63,6 +63,11 @@ type LabCluster struct {
 	// up, Flux bootstrap still to come).
 	NoGitOpsYet bool `json:"noGitOpsYet,omitempty"`
 	Findings    int  `json:"findings"`
+	// Addresses / FQDN are the cluster's allocation in clusterbook;
+	// ClusterbookName is set when clusterbook knows it by another name.
+	Addresses       []string `json:"addresses,omitempty"`
+	FQDN            string   `json:"fqdn,omitempty"`
+	ClusterbookName string   `json:"clusterbookName,omitempty"`
 }
 
 // LabSummary aggregates a lab.
@@ -95,6 +100,8 @@ type LabResponse struct {
 	Live        bool   `json:"live"`
 	Probing     bool   `json:"probing"`
 	Labs        []Lab  `json:"labs"`
+	// Sources are the further cluster sources (clusterbook) and their state.
+	Sources []SourceStatus `json:"sources"`
 }
 
 var severityRank = map[string]int{SevError: 0, SevWarning: 1, SevInfo: 2}
@@ -174,11 +181,14 @@ func (s *Server) labSnapshot() LabResponse {
 		lab.Findings = append(lab.Findings, Finding{Severity: SevWarning, Kind: "unmanaged-cluster", Cluster: name, Message: msg})
 	}
 
+	sources := s.applyClusterbooks(labOf, routesByCluster)
+
 	out := LabResponse{
 		GeneratedAt: time.Now().Format(time.RFC3339),
 		Live:        s.opts.Live,
 		Probing:     s.prober != nil,
 		Labs:        []Lab{},
+		Sources:     sources,
 	}
 	for _, lab := range labs {
 		sort.SliceStable(lab.Findings, func(i, j int) bool {

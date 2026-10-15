@@ -168,6 +168,17 @@ type Override struct {
 type Config struct {
 	Roots    []RootSpec          `json:"roots"`
 	Clusters map[string]Override `json:"clusters,omitempty"`
+	// Clusterbooks are further cluster sources: IP / DNS allocations (#60).
+	Clusterbooks []ClusterbookSpec `json:"clusterbooks,omitempty"`
+}
+
+// ClusterbookSpec is one clusterbook REST API whose allocations belong to a
+// lab. Names maps clusterbook names to cluster names where they differ and
+// the allocated domain does not identify the cluster (e.g. no routes yet).
+type ClusterbookSpec struct {
+	URL   string            `json:"url"`
+	Lab   string            `json:"lab,omitempty"`
+	Names map[string]string `json:"names,omitempty"`
 }
 
 // LoadConfig reads a -config file (YAML or JSON).
@@ -186,6 +197,11 @@ func LoadConfig(path string) (Config, error) {
 	for i, r := range c.Roots {
 		if r.Path == "" {
 			return c, fmt.Errorf("%s: roots[%d] has no path", path, i)
+		}
+	}
+	for i, b := range c.Clusterbooks {
+		if b.URL == "" {
+			return c, fmt.Errorf("%s: clusterbooks[%d] has no url", path, i)
 		}
 	}
 	return c, nil

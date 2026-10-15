@@ -64,6 +64,8 @@ type Options struct {
 	// Config replaces the single root: several roots (repos) plus
 	// per-directory cluster name / lab overrides (-config).
 	Config *scan.Config
+	// ClusterbookURL adds a clusterbook (lab: Lab) to Config's clusterbooks.
+	ClusterbookURL string
 }
 
 // ClusterSummary is the JSON payload returned by GET /api/clusters.
@@ -124,6 +126,9 @@ type Server struct {
 
 	// cloner handles on-demand git clone for PR preview via query params.
 	cloner *preview.Cloner
+
+	// books holds the last result per clusterbook (#60).
+	books []*bookState
 }
 
 // Start starts the HTTP server on addr, scanning root (or opts.Config's
@@ -133,6 +138,9 @@ func Start(addr, root string, opts Options) error {
 	cfg := scan.Config{Roots: []scan.RootSpec{{Path: root}}}
 	if opts.Config != nil {
 		cfg = *opts.Config
+	}
+	if opts.ClusterbookURL != "" {
+		cfg.Clusterbooks = append(cfg.Clusterbooks, scan.ClusterbookSpec{URL: opts.ClusterbookURL, Lab: opts.Lab})
 	}
 	for _, r := range cfg.Roots {
 		if _, err := os.Stat(r.Path); err != nil {
@@ -176,6 +184,7 @@ func Start(addr, root string, opts Options) error {
 		}
 	}
 
+	s.startSources()
 	s.scanAll()
 	if opts.PreviewRoot != "" {
 		s.scanPreview()

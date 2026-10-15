@@ -74,6 +74,7 @@ See [PR Preview](docs/preview.md) for full documentation.
 | `-root` | `.` | Root directory: one cluster, a directory of clusters, or a repo tree (`clusters/<lab>/…/<cluster>`) |
 | `-config` | — | Several roots (repos) + per-directory cluster name / lab overrides, replaces `-root` (see [Lab View](docs/lab.md)) |
 | `-lab` | `default` | Lab name for clusters whose path does not contain `clusters/<lab>/…` |
+| `-clusterbook-url` | — | clusterbook REST API: IP / DNS allocations matched against the lab's clusters (see [Lab View](docs/lab.md#clusterbook)) |
 | `-serve` | — | Start HTTP dashboard server (e.g. `:8080`) |
 | `-live` | `false` | Enrich graph with real-time reconciliation status |
 | `-kubeconfig` | — | Path to default kubeconfig file |

@@ -235,6 +235,16 @@ func (c *Clients) connect(cluster string) (*kubeClient, ClusterStatus) {
 	return kc, st
 }
 
+// Dynamic returns a dynamic client for cluster, for further cluster sources
+// that read their own resources from it (the machinery source, #60).
+func (c *Clients) Dynamic(cluster string) (dynamic.Interface, error) {
+	kc, st := c.connect(cluster)
+	if kc == nil {
+		return nil, fmt.Errorf("cluster %s %s: %s", cluster, st.Reachability, st.Error)
+	}
+	return kc.dynamic, nil
+}
+
 // Ping only checks reachability of cluster (used for clusters that have a
 // kubeconfig but no cluster directory).
 func (c *Clients) Ping(cluster string) ClusterStatus {

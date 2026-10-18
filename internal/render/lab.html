@@ -97,7 +97,22 @@ const KIND_LABEL = {
   "workloads-degraded": "workloads degraded", "not-deployed": "not deployed", "not-in-git": "not in Git",
   "route-not-accepted": "route", "endpoint-down": "endpoint down", "no-gitops": "no GitOps yet",
   "orphan-allocation": "IP without cluster", "no-allocation": "no IP allocation", "source-unavailable": "source unavailable",
+  "order-without-cluster": "order without cluster", "order-building": "being built", "order-deleting": "being torn down",
+  "order-not-synced": "order not synced", "order-not-ready": "order not ready",
 };
+
+// Where a cluster's desired state comes from: its directory, its ClusterStack
+// order on a machinery cluster (#60), or nothing but a kubeconfig.
+function clusterOrigin(c) {
+  if (c.managed) return esc(c.path);
+  if (c.order) {
+    const o = c.order;
+    const what = [o.distribution, o.nodes ? `${o.nodes}× ${o.size || ""}`.trim() : o.size].filter(Boolean).join(" · ");
+    const prof = (o.profiles || []).join(", ");
+    return `ordered on ${esc(c.orderSource)}${what ? " — " + esc(what) : ""}${prof ? `<br>profiles: ${esc(prof)}` : ""}`;
+  }
+  return "kubeconfig only — no cluster directory";
+}
 
 function esc(s) {
   return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -178,7 +193,7 @@ function render() {
       <th>Cluster</th><th>Reachability</th><th>Apps</th><th>GitOps</th><th>Workloads</th><th>Endpoints</th>${books ? "<th>IP / DNS</th>" : ""}<th>Findings</th>
       </tr></thead><tbody>`;
     html += clusters.length ? clusters.map(c => `<tr>
-        <td>${clusterLink(c.name, c.managed)}<span class="sub">${c.managed ? esc(c.path) : "kubeconfig only — no cluster directory"}</span></td>
+        <td>${clusterLink(c.name, c.managed)}<span class="sub">${clusterOrigin(c)}</span></td>
         <td>${reachPill(c)}${c.tech ? `<span class="pill info">${esc(c.tech)}</span>` : ""}</td>
         <td class="num">${c.managed ? c.apps : "–"}${c.nested ? `<span class="sub" title="Kustomizations / Applications created by other GitOps objects">+${c.nested} nested</span>` : ""}</td>
         <td>${c.noGitOpsYet ? `<span class="pill unk" title="cluster runs, no Flux / Argo CD yet">no GitOps yet</span>` : countPills(c.gitops, ["ready","progressing","failed","unknown"], {ready:"ok",progressing:"warn",failed:"bad"})}</td>

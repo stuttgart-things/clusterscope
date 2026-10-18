@@ -11,6 +11,7 @@ import (
 
 	"github.com/stuttgart-things/clusterscope/internal/graph"
 	"github.com/stuttgart-things/clusterscope/internal/live"
+	"github.com/stuttgart-things/clusterscope/internal/machinery"
 	"github.com/stuttgart-things/clusterscope/internal/render"
 	"github.com/stuttgart-things/clusterscope/internal/scan"
 )
@@ -68,6 +69,10 @@ type LabCluster struct {
 	Addresses       []string `json:"addresses,omitempty"`
 	FQDN            string   `json:"fqdn,omitempty"`
 	ClusterbookName string   `json:"clusterbookName,omitempty"`
+	// Order is the cluster's ClusterStack on a machinery cluster (OrderSource):
+	// for a cluster without a directory, its desired state.
+	Order       *machinery.Record `json:"order,omitempty"`
+	OrderSource string            `json:"orderSource,omitempty"`
 }
 
 // LabSummary aggregates a lab.
@@ -185,7 +190,8 @@ func (s *Server) labSnapshot() LabResponse {
 		lab.Findings = append(lab.Findings, Finding{Severity: SevWarning, Kind: "unmanaged-cluster", Cluster: name, Message: msg})
 	}
 
-	sources := s.applyClusterbooks(labOf, routesByCluster)
+	sources := s.applyMachineries(labOf)
+	sources = append(sources, s.applyClusterbooks(labOf, routesByCluster)...)
 
 	out := LabResponse{
 		GeneratedAt: time.Now().Format(time.RFC3339),
@@ -339,7 +345,7 @@ func summarize(lab *Lab) {
 			continue
 		}
 		sm.Clusters++
-		if !c.Managed {
+		if !c.Managed && c.Order == nil {
 			sm.Unmanaged++
 		}
 		if c.Reachability == live.Reachable {

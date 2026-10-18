@@ -8,6 +8,7 @@ import (
 
 	"github.com/stuttgart-things/clusterscope/internal/clusterbook"
 	"github.com/stuttgart-things/clusterscope/internal/live"
+	"github.com/stuttgart-things/clusterscope/internal/machinery"
 	"github.com/stuttgart-things/clusterscope/internal/scan"
 )
 
@@ -129,5 +130,100 @@ func TestRefreshSources(t *testing.T) {
 	s.refreshSources()
 	if b := s.books[0]; b.err == "" || len(b.records) != 1 {
 		t.Fatalf("after outage: err=%q records=%d (want error, last records kept)", b.err, len(b.records))
+	}
+}
+
+func TestLabMachinery(t *testing.T) {
+	s := labTestServer()
+	s.machineries = []*machineryState{{
+		spec:    scan.MachinerySpec{Cluster: "machinery", Lab: "labul", Environments: []string{"labul"}},
+		fetched: time.Now(),
+		records: []machinery.Record{
+			// kubeconfig only -> ordered, no longer "unmanaged"
+			{Name: "edge-test", Environment: "labul", Stage: "ready", Ready: true, Synced: true, Registered: true, Profiles: []string{"network", "storage-longhorn"}},
+			// directory + order, still building and not synced
+			{Name: "infra", Environment: "labul", Stage: "platform", Synced: false, SyncMessage: "cannot compose"},
+			{Name: "ghost", Environment: "labul", Stage: "ready", Ready: true, Synced: true}, // ready, no cluster
+			{Name: "fresh", Environment: "labul", Stage: "vm", Synced: true},                 // building
+			{Name: "other-lab", Environment: "labda", Stage: "ready", Ready: true, Synced: true},
+		},
+	}}
+
+	snap := s.labSnapshot()
+	var lab *Lab
+	for i := range snap.Labs {
+		if snap.Labs[i].Name == "labul" {
+			lab = &snap.Labs[i]
+		}
+	}
+	if lab == nil {
+		t.Fatal("no labul lab")
+	}
+	byName := map[string]LabCluster{}
+	for _, c := range lab.Clusters {
+		byName[c.Name] = c
+	}
+	if c := byName["edge-test"]; c.Order == nil || c.OrderSource != "machinery" || c.Order.Profiles[1] != "storage-longhorn" || c.Findings != 0 {
+		t.Errorf("edge-test = %+v", c)
+	}
+	if c := byName["infra"]; c.Order == nil || c.Order.Stage != "platform" {
+		t.Errorf("infra = %+v", c)
+	}
+
+	kinds := map[string][]string{}
+	for _, f := range lab.Findings {
+		kinds[f.Kind] = append(kinds[f.Kind], f.Cluster)
+	}
+	if got := kinds["unmanaged-cluster"]; len(got) != 0 {
+		t.Errorf("unmanaged-cluster = %v (edge-test is ordered)", got)
+	}
+	for kind, want := range map[string]string{
+		"order-without-cluster": "ghost", "order-building": "fresh",
+		"order-not-synced": "infra", "order-not-ready": "infra",
+	} {
+		if got := kinds[kind]; len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %v, want [%s]", kind, got, want)
+		}
+	}
+	for _, f := range lab.Findings {
+		if f.Cluster == "other-lab" {
+			t.Errorf("order of another environment reported: %+v", f)
+		}
+	}
+	if lab.Summary.Unmanaged != 0 {
+		t.Errorf("summary unmanaged = %d", lab.Summary.Unmanaged)
+	}
+	var src *SourceStatus
+	for i := range snap.Sources {
+		if snap.Sources[i].Kind == "machinery" {
+			src = &snap.Sources[i]
+		}
+	}
+	if src == nil || !src.OK || src.Records != 4 || src.URL != "machinery" {
+		t.Errorf("machinery source = %+v", src)
+	}
+}
+
+func TestMachineryNeedsLive(t *testing.T) {
+	s := labTestServer()
+	s.clients = nil
+	m := &machineryState{spec: scan.MachinerySpec{Cluster: "machinery"}}
+	m.list = s.machineryLister("machinery")
+	s.machineries = []*machineryState{m}
+	s.refreshSources()
+	if m.err == "" {
+		t.Error("expected an error without live clients")
+	}
+	snap := s.labSnapshot()
+	found := false
+	for _, l := range snap.Labs {
+		for _, f := range l.Findings {
+			if f.Kind == "source-unavailable" && f.Object == "machinery" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Error("no source-unavailable finding")
 	}
 }

@@ -58,8 +58,7 @@ The file watcher covers root, every cluster directory and the directories in bet
 | `-kubeconfig-dir` / `-kubeconfig-map` | which clusters can be reached |
 | live mode | GitOps status, [workload health](live.md#workload-health), [endpoints](endpoints.md) |
 | clusterbook (`-clusterbook-url`, `clusterbooks:`) | IP / DNS allocation per cluster |
-
-machinery (ordered clusters) is planned as a further source.
+| machinery (`machineries:`) | ClusterStack orders: the desired state of clusters built by Crossplane |
 
 ### clusterbook
 
@@ -76,6 +75,21 @@ clusterbooks:
 An allocation belongs to a cluster of its lab by, in order: `names`, the same name, the domain — the one cluster whose HTTPRoute hostnames lie under the allocated FQDN (`*.infra.sthings-vsphere.labul.sva.de` → `infra-sthings`). `names` is only needed where a cluster has no routes yet. The lab view shows the addresses and FQDN per cluster.
 
 clusterbook is read at startup and every 5 minutes. When it cannot be read, the lab shows `source unavailable` and keeps the last result.
+
+### machinery
+
+A cluster built from a `ClusterStack` XR ([crossplane-configurations `bootstrap/cluster`](https://github.com/stuttgart-things/crossplane-configurations/tree/main/bootstrap/cluster)) has no cluster directory: its desired state is the order — distribution, size, profiles — and the Argo CD ApplicationSets those profiles select. Without this source such a cluster shows up as `not in Git`.
+
+The orders are read from the machinery cluster's API (`clusterstacks.config.stuttgart-things.com`), through its kubeconfig in `-kubeconfig-dir` / `-kubeconfig-map` — so it needs live mode, and RBAC to list `clusterstacks`. In the `-config` file:
+
+```yaml
+machineries:
+  - cluster: machinery        # kubeconfig name
+    lab: labda
+    environments: [labda]     # spec.environmentConfig; one machinery builds for several labs
+```
+
+An order belongs to the lab's cluster of the same name. The cluster then shows `ordered on <machinery>` with distribution, size and profiles instead of `kubeconfig only`, and is no longer `not in Git` or counted as unmanaged. Ready means `status.ready` **and** the `Ready` condition, as in cluster-build-watch. Read at startup and every 5 minutes, like clusterbook.
 
 ## Findings
 
@@ -95,10 +109,14 @@ clusterbook is read at startup and every 5 minutes. When it cannot be read, the 
 | warning | `workloads unreadable` | workloads/pods could not be listed (RBAC) |
 | warning | `duplicate name` | second directory with an existing cluster name |
 | warning | `IP without cluster` | allocation in clusterbook that no cluster of the lab matches (leftover of a torn-down or test cluster) |
-| warning | `source unavailable` | clusterbook not readable (last result kept) |
+| warning | `source unavailable` | clusterbook / machinery not readable (last result kept) |
+| warning | `order without cluster` | ClusterStack ready on machinery, but no kubeconfig and no cluster directory |
+| warning | `order not synced` | the cluster's ClusterStack is not Synced (composition error) |
 | info | `no GitOps yet` | cluster directory and a running cluster, but no Flux / Argo CD objects in either (e.g. k3s set up, bootstrap pending) |
 | info | `not in Git` (object) | Kustomization / Application in the cluster without any GitOps manager: applied by hand |
 | info | `no IP allocation` | cluster of a lab with a clusterbook, but no allocation for it |
+| info | `being built` / `being torn down` | ClusterStack without a cluster yet, with its stage / being deleted |
+| info | `order not ready` | the cluster's ClusterStack is not ready (stage shown) |
 
 Kustomizations / Applications in the cluster that are not in the cluster directory but were created by another GitOps object (labels `kustomize.toolkit.fluxcd.io/name`, `helm.toolkit.fluxcd.io/name`, `fluxcd.controlplane.io/name`, `app.kubernetes.io/instance`, annotation `argocd.argoproj.io/tracking-id`, or an owner reference) are **nested**: they are in Git elsewhere. They are counted per cluster (`+N nested`), not reported.
 

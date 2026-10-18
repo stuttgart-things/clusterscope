@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/stuttgart-things/clusterscope/compare/v0.26.0...v0.27.0) (2026-10-18)
+
+
+### Features
+
+* **lab:** machinery as a cluster source -- ClusterStack orders ([#60](https://github.com/stuttgart-things/clusterscope/issues/60)) ([#88](https://github.com/stuttgart-things/clusterscope/issues/88)) ([3bc0194](https://github.com/stuttgart-things/clusterscope/commit/3bc01949812bb13c7bfb57f1bce33cf0b8e737cb))
+
 ## [0.26.0](https://github.com/stuttgart-things/clusterscope/compare/v0.25.1...v0.26.0) (2026-10-15)
 
 

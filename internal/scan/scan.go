@@ -170,6 +170,19 @@ type Config struct {
 	Clusters map[string]Override `json:"clusters,omitempty"`
 	// Clusterbooks are further cluster sources: IP / DNS allocations (#60).
 	Clusterbooks []ClusterbookSpec `json:"clusterbooks,omitempty"`
+	// Machineries are further cluster sources: the ClusterStack orders of a
+	// machinery cluster (#60).
+	Machineries []MachinerySpec `json:"machineries,omitempty"`
+}
+
+// MachinerySpec is one machinery cluster whose ClusterStack orders belong to
+// a lab. Cluster names its kubeconfig (-kubeconfig-dir / -kubeconfig-map).
+// Environments keeps only the orders whose spec.environmentConfig is listed
+// -- one machinery builds for several labs; empty keeps every order.
+type MachinerySpec struct {
+	Cluster      string   `json:"cluster"`
+	Lab          string   `json:"lab,omitempty"`
+	Environments []string `json:"environments,omitempty"`
 }
 
 // ClusterbookSpec is one clusterbook REST API whose allocations belong to a
@@ -202,6 +215,11 @@ func LoadConfig(path string) (Config, error) {
 	for i, b := range c.Clusterbooks {
 		if b.URL == "" {
 			return c, fmt.Errorf("%s: clusterbooks[%d] has no url", path, i)
+		}
+	}
+	for i, m := range c.Machineries {
+		if m.Cluster == "" {
+			return c, fmt.Errorf("%s: machineries[%d] has no cluster", path, i)
 		}
 	}
 	return c, nil

@@ -129,6 +129,8 @@ type Server struct {
 
 	// books holds the last result per clusterbook (#60).
 	books []*bookState
+	// machineries holds the last orders per machinery cluster (#60).
+	machineries []*machineryState
 }
 
 // Start starts the HTTP server on addr, scanning root (or opts.Config's

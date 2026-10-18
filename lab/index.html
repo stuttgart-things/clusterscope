@@ -692,6 +692,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#machinery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        machinery
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1020,6 +1031,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#machinery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        machinery
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1156,9 +1178,12 @@
 <td>clusterbook (<code>-clusterbook-url</code>, <code>clusterbooks:</code>)</td>
 <td>IP / DNS allocation per cluster</td>
 </tr>
+<tr>
+<td>machinery (<code>machineries:</code>)</td>
+<td>ClusterStack orders: the desired state of clusters built by Crossplane</td>
+</tr>
 </tbody>
 </table>
-<p>machinery (ordered clusters) is planned as a further source.</p>
 <h3 id="clusterbook">clusterbook</h3>
 <p>A <a href="https://github.com/stuttgart-things/clusterbook">clusterbook</a> REST API (<code>/api/v1/clusters</code>) lists the IP / DNS allocations. One clusterbook per lab: <code>-clusterbook-url</code> (lab: <code>-lab</code>), or several in the <code>-config</code> file:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">clusterbooks</span><span class="p">:</span>
@@ -1169,6 +1194,15 @@
 </code></pre></div>
 <p>An allocation belongs to a cluster of its lab by, in order: <code>names</code>, the same name, the domain — the one cluster whose HTTPRoute hostnames lie under the allocated FQDN (<code>*.infra.sthings-vsphere.labul.sva.de</code> → <code>infra-sthings</code>). <code>names</code> is only needed where a cluster has no routes yet. The lab view shows the addresses and FQDN per cluster.</p>
 <p>clusterbook is read at startup and every 5 minutes. When it cannot be read, the lab shows <code>source unavailable</code> and keeps the last result.</p>
+<h3 id="machinery">machinery</h3>
+<p>A cluster built from a <code>ClusterStack</code> XR (<a href="https://github.com/stuttgart-things/crossplane-configurations/tree/main/bootstrap/cluster">crossplane-configurations <code>bootstrap/cluster</code></a>) has no cluster directory: its desired state is the order — distribution, size, profiles — and the Argo CD ApplicationSets those profiles select. Without this source such a cluster shows up as <code>not in Git</code>.</p>
+<p>The orders are read from the machinery cluster's API (<code>clusterstacks.config.stuttgart-things.com</code>), through its kubeconfig in <code>-kubeconfig-dir</code> / <code>-kubeconfig-map</code> — so it needs live mode, and RBAC to list <code>clusterstacks</code>. In the <code>-config</code> file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">machineries</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">machinery</span><span class="w">        </span><span class="c1"># kubeconfig name</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">lab</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">labda</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">environments</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">labda</span><span class="p p-Indicator">]</span><span class="w">     </span><span class="c1"># spec.environmentConfig; one machinery builds for several labs</span>
+</code></pre></div>
+<p>An order belongs to the lab's cluster of the same name. The cluster then shows <code>ordered on &lt;machinery&gt;</code> with distribution, size and profiles instead of <code>kubeconfig only</code>, and is no longer <code>not in Git</code> or counted as unmanaged. Ready means <code>status.ready</code> <strong>and</strong> the <code>Ready</code> condition, as in cluster-build-watch. Read at startup and every 5 minutes, like clusterbook.</p>
 <h2 id="findings">Findings</h2>
 <table>
 <thead>
@@ -1252,7 +1286,17 @@
 <tr>
 <td>warning</td>
 <td><code>source unavailable</code></td>
-<td>clusterbook not readable (last result kept)</td>
+<td>clusterbook / machinery not readable (last result kept)</td>
+</tr>
+<tr>
+<td>warning</td>
+<td><code>order without cluster</code></td>
+<td>ClusterStack ready on machinery, but no kubeconfig and no cluster directory</td>
+</tr>
+<tr>
+<td>warning</td>
+<td><code>order not synced</code></td>
+<td>the cluster's ClusterStack is not Synced (composition error)</td>
 </tr>
 <tr>
 <td>info</td>
@@ -1269,32 +1313,42 @@
 <td><code>no IP allocation</code></td>
 <td>cluster of a lab with a clusterbook, but no allocation for it</td>
 </tr>
+<tr>
+<td>info</td>
+<td><code>being built</code> / <code>being torn down</code></td>
+<td>ClusterStack without a cluster yet, with its stage / being deleted</td>
+</tr>
+<tr>
+<td>info</td>
+<td><code>order not ready</code></td>
+<td>the cluster's ClusterStack is not ready (stage shown)</td>
+</tr>
 </tbody>
 </table>
 <p>Kustomizations / Applications in the cluster that are not in the cluster directory but were created by another GitOps object (labels <code>kustomize.toolkit.fluxcd.io/name</code>, <code>helm.toolkit.fluxcd.io/name</code>, <code>fluxcd.controlplane.io/name</code>, <code>app.kubernetes.io/instance</code>, annotation <code>argocd.argoproj.io/tracking-id</code>, or an owner reference) are <strong>nested</strong>: they are in Git elsewhere. They are counted per cluster (<code>+N nested</code>), not reported.</p>
 <h2 id="api">API</h2>
 <p><code>GET /api/lab</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"generatedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-14T17:57:45Z"</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"live"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">"probing"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">"labs"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"labul"</span><span class="p">,</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">"summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"clusters"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"reachable"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"unmanaged"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"apps"</span><span class="p">:</span><span class="w"> </span><span class="mi">22</span><span class="p">,</span><span class="w"> </span><span class="nt">"healthy"</span><span class="p">:</span><span class="w"> </span><span class="mi">34</span><span class="p">,</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">                </span><span class="nt">"degraded"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"down"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"drift"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"routes"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span><span class="w"> </span><span class="nt">"routesOK"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">                </span><span class="nt">"errors"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"warnings"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">},</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">"clusters"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra-sthings"</span><span class="p">,</span><span class="w"> </span><span class="nt">"managed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"labul/vsphere/infra-sthings"</span><span class="p">,</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">                  </span><span class="nt">"tech"</span><span class="p">:</span><span class="w"> </span><span class="s2">"flux"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reachability"</span><span class="p">:</span><span class="w"> </span><span class="s2">"reachable"</span><span class="p">,</span><span class="w"> </span><span class="nt">"apps"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="nt">"nested"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">                  </span><span class="nt">"gitops"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"ready"</span><span class="p">:</span><span class="w"> </span><span class="mi">17</span><span class="p">},</span><span class="w"> </span><span class="nt">"workloads"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"healthy"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"degraded"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"n/a"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">},</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">                  </span><span class="nt">"drift"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"routes"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"routesOK"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">                  </span><span class="nt">"addresses"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"10.31.101.6"</span><span class="p">],</span><span class="w"> </span><span class="nt">"fqdn"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*.infra.sthings-vsphere.labul.sva.de"</span><span class="p">,</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">                  </span><span class="nt">"clusterbookName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra"</span><span class="p">}],</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"error"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"drift"</span><span class="p">,</span><span class="w"> </span><span class="nt">"cluster"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra-sthings"</span><span class="p">,</span><span class="w"> </span><span class="nt">"object"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nfs-csi"</span><span class="p">,</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">                  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GitOps ready, workloads degraded 2/3 — snapshot-controller-…: CrashLoopBackOff"</span><span class="p">}]</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">  </span><span class="p">}],</span>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">  </span><span class="nt">"sources"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"clusterbook"</span><span class="p">,</span><span class="w"> </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://clusterbook.infra.sthings-vsphere.labul.sva.de"</span><span class="p">,</span>
-<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">               </span><span class="nt">"ok"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"records"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"fetchedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-15T04:25:58Z"</span><span class="p">}]</span>
-<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">"generatedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-14T17:57:45Z"</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">"live"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">"probing"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">"labs"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"labul"</span><span class="p">,</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">"summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"clusters"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"reachable"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"unmanaged"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"apps"</span><span class="p">:</span><span class="w"> </span><span class="mi">22</span><span class="p">,</span><span class="w"> </span><span class="nt">"healthy"</span><span class="p">:</span><span class="w"> </span><span class="mi">34</span><span class="p">,</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">                </span><span class="nt">"degraded"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"down"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"drift"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"routes"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span><span class="w"> </span><span class="nt">"routesOK"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">                </span><span class="nt">"errors"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"warnings"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">},</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nt">"clusters"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra-sthings"</span><span class="p">,</span><span class="w"> </span><span class="nt">"managed"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"labul/vsphere/infra-sthings"</span><span class="p">,</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">                  </span><span class="nt">"tech"</span><span class="p">:</span><span class="w"> </span><span class="s2">"flux"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reachability"</span><span class="p">:</span><span class="w"> </span><span class="s2">"reachable"</span><span class="p">,</span><span class="w"> </span><span class="nt">"apps"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="nt">"nested"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">                  </span><span class="nt">"gitops"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"ready"</span><span class="p">:</span><span class="w"> </span><span class="mi">17</span><span class="p">},</span><span class="w"> </span><span class="nt">"workloads"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"healthy"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"degraded"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"n/a"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">},</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">                  </span><span class="nt">"drift"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"routes"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"routesOK"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">                  </span><span class="nt">"addresses"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"10.31.101.6"</span><span class="p">],</span><span class="w"> </span><span class="nt">"fqdn"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*.infra.sthings-vsphere.labul.sva.de"</span><span class="p">,</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">                  </span><span class="nt">"clusterbookName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra"</span><span class="p">}],</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">    </span><span class="nt">"findings"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"error"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"drift"</span><span class="p">,</span><span class="w"> </span><span class="nt">"cluster"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra-sthings"</span><span class="p">,</span><span class="w"> </span><span class="nt">"object"</span><span class="p">:</span><span class="w"> </span><span class="s2">"nfs-csi"</span><span class="p">,</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">                  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GitOps ready, workloads degraded 2/3 — snapshot-controller-…: CrashLoopBackOff"</span><span class="p">}]</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">  </span><span class="p">}],</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">  </span><span class="nt">"sources"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"clusterbook"</span><span class="p">,</span><span class="w"> </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://clusterbook.infra.sthings-vsphere.labul.sva.de"</span><span class="p">,</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">               </span><span class="nt">"ok"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"records"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"fetchedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-15T04:25:58Z"</span><span class="p">}]</span>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="p">}</span>
 </code></pre></div>
 <p><code>GET /api/clusters</code> carries the <code>lab</code> of every cluster; the sidebar groups clusters by lab when there is more than one.</p>
 <h2 id="metrics">Metrics</h2>
@@ -1320,7 +1374,7 @@
 </tbody>
 </table>
 <p><code>clusterscope_cluster_info</code> lets you group the other per-cluster metrics by lab:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">lab</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="nv">clusterscope_app_gitops_drift</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">on</span><span class="o">(</span><span class="nv">cluster</span><span class="o">)</span><span class="w"> </span><span class="k">group_left</span><span class="o">(</span><span class="nv">lab</span><span class="o">)</span><span class="w"> </span><span class="nv">clusterscope_cluster_info</span><span class="o">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">sum</span><span class="w"> </span><span class="k">by</span><span class="w"> </span><span class="o">(</span><span class="nv">lab</span><span class="o">)</span><span class="w"> </span><span class="o">(</span><span class="nv">clusterscope_app_gitops_drift</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">on</span><span class="o">(</span><span class="nv">cluster</span><span class="o">)</span><span class="w"> </span><span class="k">group_left</span><span class="o">(</span><span class="nv">lab</span><span class="o">)</span><span class="w"> </span><span class="nv">clusterscope_cluster_info</span><span class="o">)</span>
 </code></pre></div>
 
 

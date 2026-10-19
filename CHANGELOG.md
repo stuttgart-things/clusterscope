@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.28.0](https://github.com/stuttgart-things/clusterscope/compare/v0.27.0...v0.28.0) (2026-10-19)
+
+
+### Features
+
+* **lab:** name the cluster whose Kustomization includes a directory ([#93](https://github.com/stuttgart-things/clusterscope/issues/93)) ([#94](https://github.com/stuttgart-things/clusterscope/issues/94)) ([c0b06fa](https://github.com/stuttgart-things/clusterscope/commit/c0b06fa96ab3dbef746b5a0c0b6783450ecf8bdd))
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/fsnotify/fsnotify to v1.10.1 ([#80](https://github.com/stuttgart-things/clusterscope/issues/80)) ([5cc770d](https://github.com/stuttgart-things/clusterscope/commit/5cc770d6c5786c17e14a48a4f701889f34807bea))
+
 ## [0.27.0](https://github.com/stuttgart-things/clusterscope/compare/v0.26.0...v0.27.0) (2026-10-18)
 
 

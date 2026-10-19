@@ -193,7 +193,7 @@ function render() {
       <th>Cluster</th><th>Reachability</th><th>Apps</th><th>GitOps</th><th>Workloads</th><th>Endpoints</th>${books ? "<th>IP / DNS</th>" : ""}<th>Findings</th>
       </tr></thead><tbody>`;
     html += clusters.length ? clusters.map(c => `<tr>
-        <td>${clusterLink(c.name, c.managed)}<span class="sub">${clusterOrigin(c)}</span></td>
+        <td>${clusterLink(c.name, c.managed)}<span class="sub">${clusterOrigin(c)}</span>${(c.includes || []).length ? `<span class="sub" title="directories this cluster's GitOps objects point at">includes ${c.includes.map(esc).join(", ")}</span>` : ""}</td>
         <td>${reachPill(c)}${c.tech ? `<span class="pill info">${esc(c.tech)}</span>` : ""}</td>
         <td class="num">${c.managed ? c.apps : "–"}${c.nested ? `<span class="sub" title="Kustomizations / Applications created by other GitOps objects">+${c.nested} nested</span>` : ""}</td>
         <td>${c.noGitOpsYet ? `<span class="pill unk" title="cluster runs, no Flux / Argo CD yet">no GitOps yet</span>` : countPills(c.gitops, ["ready","progressing","failed","unknown"], {ready:"ok",progressing:"warn",failed:"bad"})}</td>
@@ -204,7 +204,9 @@ function render() {
       </tr>`).join("") : `<tr><td colspan="${books ? 8 : 7}" class="empty">No clusters match.</td></tr>`;
     html += other.map(c => `<tr class="other">
         <td><span class="mono muted">${esc(c.name)}</span><span class="sub">${esc(c.path)}</span></td>
-        <td colspan="${books ? 7 : 6}" class="muted">no GitOps objects and no reachable cluster — not counted as a cluster</td>
+        <td colspan="${books ? 7 : 6}" class="muted">${c.includedBy
+          ? `content of ${clusterLink(c.includedBy, true)} (via <span class="mono">${esc(c.includedVia)}</span>) — not a cluster`
+          : "no GitOps objects and no reachable cluster — not counted as a cluster"}</td>
       </tr>`).join("");
     html += `</tbody></table></div>`;
 

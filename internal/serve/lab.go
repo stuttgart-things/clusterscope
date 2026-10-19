@@ -59,6 +59,13 @@ type LabCluster struct {
 	// reachable cluster (e.g. Crossplane claims next to the cluster dirs);
 	// it is listed but not counted as a cluster.
 	NoGitOps bool `json:"noGitOps,omitempty"`
+	// IncludedBy / IncludedVia name the cluster and the GitOps object whose
+	// path points at a NoGitOps directory: it is that cluster's content (e.g.
+	// machinery-xrs, included by machinery's Kustomization xrs), not a
+	// cluster. Includes is the reverse, on the including cluster (#93).
+	IncludedBy  string   `json:"includedBy,omitempty"`
+	IncludedVia string   `json:"includedVia,omitempty"`
+	Includes    []string `json:"includes,omitempty"`
 	// NoGitOpsYet marks a reachable cluster whose directory has no GitOps
 	// objects and which runs no Flux / Argo CD objects either (e.g. k3s set
 	// up, Flux bootstrap still to come).
@@ -147,6 +154,12 @@ func (s *Server) labSnapshot() LabResponse {
 		names = append(names, n)
 	}
 	sort.Strings(names)
+	// Lab and index, not a pointer: appending to a lab moves its rows.
+	type rowRef struct {
+		lab *Lab
+		i   int
+	}
+	rows := make(map[string]rowRef, len(names))
 	for _, name := range names {
 		dir, ok := s.dirs[name]
 		if !ok {
@@ -155,7 +168,21 @@ func (s *Server) labSnapshot() LabResponse {
 		lab := labOf(dir.Lab)
 		lc, findings := s.labCluster(name, dir, routesByCluster[name])
 		lab.Clusters = append(lab.Clusters, lc)
+		rows[name] = rowRef{lab, len(lab.Clusters) - 1}
 		lab.Findings = append(lab.Findings, findings...)
+	}
+	for child, inc := range s.inclusions() {
+		cr, ok1 := rows[child]
+		pr, ok2 := rows[inc.cluster]
+		if !ok1 || !ok2 || !cr.lab.Clusters[cr.i].NoGitOps {
+			continue
+		}
+		c, p := &cr.lab.Clusters[cr.i], &pr.lab.Clusters[pr.i]
+		c.IncludedBy, c.IncludedVia = inc.cluster, inc.object
+		p.Includes = append(p.Includes, child)
+	}
+	for _, r := range rows {
+		sort.Strings(r.lab.Clusters[r.i].Includes)
 	}
 
 	for _, d := range s.duplicates {
@@ -215,6 +242,51 @@ func (s *Server) labSnapshot() LabResponse {
 		out.Labs = append(out.Labs, *lab)
 	}
 	sort.Slice(out.Labs, func(i, j int) bool { return out.Labs[i].Name < out.Labs[j].Name })
+	return out
+}
+
+type inclusion struct{ cluster, object string }
+
+// inclusions maps each directory without GitOps objects to the GitOps object
+// of another cluster whose path points at it (#93): a Flux Kustomization's
+// spec.path or an Argo CD Application's source path, relative to the
+// repository root, matched as a suffix of the directory's absolute path. The
+// source is not resolved to a repository -- a path from another repository
+// (flux.git's ./cicd/...) does not end in a cluster directory. Clusters and
+// nodes are visited in order, so the first match is stable.
+// The caller holds s.mu.
+func (s *Server) inclusions() map[string]inclusion {
+	empty := make(map[string]string) // name → slash-separated directory path
+	for name, d := range s.dirs {
+		if p := s.cache[name]; p != nil && len(p.Graph.Nodes) == 0 && d.Path != "" {
+			empty[name] = filepath.ToSlash(filepath.Clean(d.Path))
+		}
+	}
+	out := make(map[string]inclusion)
+	if len(empty) == 0 {
+		return out
+	}
+	parents := make([]string, 0, len(s.cache))
+	for n := range s.cache {
+		parents = append(parents, n)
+	}
+	sort.Strings(parents)
+	for _, parent := range parents {
+		for _, n := range s.cache[parent].Graph.Nodes {
+			np := strings.Trim(filepath.ToSlash(filepath.Clean(n.Path)), "/")
+			if n.Path == "" || np == "." || np == "" {
+				continue
+			}
+			for child, dp := range empty {
+				if child == parent || out[child].cluster != "" {
+					continue
+				}
+				if dp == "/"+np || strings.HasSuffix(dp, "/"+np) {
+					out[child] = inclusion{cluster: parent, object: n.ID}
+				}
+			}
+		}
+	}
 	return out
 }
 

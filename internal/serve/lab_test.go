@@ -27,9 +27,12 @@ func labTestServer() *Server {
 			{ID: "broken", Type: "apps", Status: "failed", Message: "kustomize build failed"},
 		}}},
 		"infra": {Technology: "flux", Graph: graph.Graph{Nodes: []graph.Node{{ID: "apps", Type: "apps", Status: "unknown"}}}},
-		"dev":   {Technology: "argocd", Graph: graph.Graph{Nodes: []graph.Node{{ID: "shop", Type: "argoapp", Technology: "argocd", Status: "unknown"}}}},
-		"xrs":   {Technology: "flux"}, // claims next to the cluster dirs, no GitOps objects
-		"edge":  {Technology: "flux"}, // k3s set up, no Flux yet
+		"dev": {Technology: "argocd", Graph: graph.Graph{Nodes: []graph.Node{
+			{ID: "shop", Type: "argoapp", Technology: "argocd", Status: "unknown"},
+			{ID: "orders", Type: "apps", Path: "./clusters/labda/vsphere/xrs", Status: "unknown"},
+		}}},
+		"xrs":  {Technology: "flux"}, // claims next to the cluster dirs, no GitOps objects
+		"edge": {Technology: "flux"}, // k3s set up, no Flux yet
 	}
 	s := newTestServer(profiles, map[string]string{}, true)
 	s.cfg = scan.Config{Roots: []scan.RootSpec{{Path: "/repo/clusters"}}}
@@ -122,6 +125,12 @@ func TestLabSnapshot(t *testing.T) {
 	}
 	if labda.Summary.Clusters != 1 || len(labda.Clusters) != 2 || !labda.Clusters[1].NoGitOps {
 		t.Errorf("directory without GitOps objects must be listed but not counted: %+v", labda)
+	}
+	if x := labda.Clusters[1]; x.IncludedBy != "dev" || x.IncludedVia != "orders" {
+		t.Errorf("xrs is dev's content (#93): %+v", x)
+	}
+	if d := labda.Clusters[0]; len(d.Includes) != 1 || d.Includes[0] != "xrs" {
+		t.Errorf("dev includes xrs: %+v", d)
 	}
 }
 

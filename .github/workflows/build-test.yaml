@@ -24,19 +24,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Dagger lint
-        uses: dagger/dagger-for-github@v8.4.0
+        uses: dagger/dagger-for-github@v8.4.1
         with:
           module: ./dagger
           call: lint --src . --progress plain
           cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
       - name: Dagger test
-        uses: dagger/dagger-for-github@v8.4.0
+        uses: dagger/dagger-for-github@v8.4.1
         with:
           module: ./dagger
           call: test --src . --progress plain
           cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
       - name: Dagger build-and-test
-        uses: dagger/dagger-for-github@v8.4.0
+        uses: dagger/dagger-for-github@v8.4.1
         with:
           module: ./dagger
           call: build-and-test-binary --source . --progress plain

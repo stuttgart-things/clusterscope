@@ -1152,6 +1152,7 @@
 </ul>
 <p>Cluster names must be unique (they are also the kubeconfig names). A second directory with the same name is skipped and reported as <code>duplicate name</code>.</p>
 <p>Directories with no GitOps object (no Flux Kustomization / source, no Argo CD Application), and with no reachable cluster behind them, are listed but not counted as clusters. These are typically Crossplane claims or clusterbook data next to the cluster directories.</p>
+<p>When a GitOps object of another cluster points at such a directory (a Flux Kustomization's <code>spec.path</code>, an Argo CD Application's source path), the row says whose content it is: <code>machinery-xrs</code> reads "content of machinery (via xrs)", and the machinery row lists <code>includes machinery-xrs</code>. The path is matched as a suffix of the directory's path; the source is not resolved to a repository. A directory nothing points at keeps the plain "not counted" text.</p>
 <p>The file watcher covers root, every cluster directory and the directories in between; any change triggers a debounced full rescan, and removed directories disappear from the dashboard and the metrics.</p>
 <h2 id="sources">Sources</h2>
 <table>

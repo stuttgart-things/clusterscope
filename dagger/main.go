@@ -34,7 +34,7 @@ func (m *Clusterscope) Test(
 	ctx context.Context,
 	src *dagger.Directory,
 	// +optional
-	// +default="1.25.5"
+	// +default="1.27.3"
 	goVersion string,
 	// +optional
 	// +default="./..."
@@ -61,7 +61,7 @@ func (m *Clusterscope) Build(
 	// +default=""
 	ldflags string,
 	// +optional
-	// +default="1.25.5"
+	// +default="1.27.3"
 	goVersion string,
 	// +optional
 	// +default="linux"
@@ -116,7 +116,7 @@ func (m *Clusterscope) BuildAndTestBinary(
 	ctx context.Context,
 	source *dagger.Directory,
 	// +optional
-	// +default="1.25.5"
+	// +default="1.27.3"
 	goVersion string,
 	// +optional
 	// +default="linux"

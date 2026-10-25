@@ -9,7 +9,7 @@ go build ./...
 go test ./...
 ```
 
-Requires **Go 1.22+** and [Task](https://taskfile.dev).
+Requires **Go 1.27+** and [Task](https://taskfile.dev).
 
 ## Available tasks
 

@@ -37,7 +37,8 @@ func (s *Server) handlePDF(w http.ResponseWriter, r *http.Request) {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	targetURL := fmt.Sprintf("%s://%s/clusters/%s", scheme, r.Host, name)
+	// Under BASE_PATH the cluster page lives under the prefix too.
+	targetURL := fmt.Sprintf("%s://%s%s/clusters/%s", scheme, r.Host, s.opts.BasePath, name)
 
 	// Container-safe Chrome flags:
 	//

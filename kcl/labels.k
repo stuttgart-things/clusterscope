@@ -6,6 +6,7 @@ import schema
 _image = option("config.image")
 _namespace = option("config.namespace")
 _port = option("config.port")
+_basePath = option("config.basePath")
 _dir = option("config.dir")
 _tech = option("config.tech")
 _replicas = option("config.replicas")
@@ -38,6 +39,8 @@ config: schema.ClusterScope = schema.ClusterScope {
         namespace = _namespace
     if _port:
         port = int(_port)
+    if _basePath:
+        basePath = _basePath
     if _dir:
         dir = _dir
     if _tech:

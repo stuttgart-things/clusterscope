@@ -258,7 +258,7 @@ function renderSummary() {
 }
 
 function load() {
-  fetch("/api/endpoints")
+  fetch("api/endpoints")
     .then(r => r.json())
     .then(d => {
       data = d;

@@ -89,6 +89,7 @@ See [PR Preview](docs/preview.md) for full documentation.
 | `-head-dir` | — | Head cluster directory (used with `-diff`) |
 | `-format` | `markdown` | Diff output format: `markdown` \| `json` \| `html` |
 | `-preview-root` | — | Directory containing PR head ref cluster files (used with `-serve`) |
+| `-base-path` | `$BASE_PATH` | Serve the dashboard under this prefix behind [sthings-portal](https://github.com/stuttgart-things/sthings-portal), e.g. `/clusterscope` (used with `-serve`, see [serve](docs/serve.md#behind-sthings-portal)) |
 
 ## Documentation
 

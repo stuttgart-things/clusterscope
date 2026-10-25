@@ -129,7 +129,7 @@ document.addEventListener("click", e => {
   e.preventDefault();
   const name = a.dataset.cluster;
   if (window.parent !== window && typeof window.parent.loadCluster === "function") window.parent.loadCluster(name);
-  else location.href = "/clusters/" + encodeURIComponent(name);
+  else location.href = "clusters/" + encodeURIComponent(name);
 });
 
 function stat(v, l, cls) {
@@ -239,7 +239,7 @@ function render() {
 }
 
 function load() {
-  fetch("/api/lab").then(r => r.json()).then(d => {
+  fetch("api/lab").then(r => r.json()).then(d => {
     data = d;
     const want = els.lab.value || params.get("lab") || "";
     els.lab.innerHTML = `<option value="">All labs</option>` +

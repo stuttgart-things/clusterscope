@@ -500,9 +500,6 @@ func (s *Server) handleAPIlab(w http.ResponseWriter, _ *http.Request) {
 }
 
 // handleLab serves the lab dashboard page.
-func (s *Server) handleLab(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := render.WriteLab(w); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+func (s *Server) handleLab(w http.ResponseWriter, r *http.Request) {
+	s.writePage(w, r, render.WriteLab)
 }

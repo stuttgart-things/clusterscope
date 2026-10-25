@@ -96,6 +96,7 @@ kcl_options:
 | `config.imagePullPolicy` | `IfNotPresent` | Image pull policy |
 | `config.replicas` | `1` | Number of replicas |
 | `config.port` | `8080` | HTTP serve port |
+| `config.basePath` | `""` | Prefix behind sthings-portal, e.g. `/clusterscope` (`-base-path`); probes stay at the root |
 | `config.dir` | `/data` | Path inside container to scan for GitOps manifests |
 | `config.tech` | `flux` | GitOps technology: `flux` or `argocd` |
 | `config.gitSyncEnabled` | `false` | Enable git-sync sidecar |

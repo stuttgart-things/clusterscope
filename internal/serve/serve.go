@@ -7,6 +7,7 @@ package serve
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -66,6 +67,10 @@ type Options struct {
 	Config *scan.Config
 	// ClusterbookURL adds a clusterbook (lab: Lab) to Config's clusterbooks.
 	ClusterbookURL string
+	// BasePath serves the dashboard under a prefix behind sthings-portal
+	// (e.g. "/clusterscope"), already checked by ParseBasePath; "" serves it
+	// at the root. See handler.
+	BasePath string
 }
 
 // ClusterSummary is the JSON payload returned by GET /api/clusters.
@@ -204,7 +209,23 @@ func Start(addr, root string, opts Options) error {
 		go s.liveRefreshLoop()
 	}
 
+	roots := make([]string, 0, len(cfg.Roots))
+	for _, r := range cfg.Roots {
+		roots = append(roots, r.Path)
+	}
+	log.Printf("clusterscope serving on %s%s  roots=%s", addr, opts.BasePath, strings.Join(roots, ","))
+	return http.ListenAndServe(addr, s.handler()) //nolint:gosec
+}
+
+// handler builds the routes. Without a base path everything answers at the
+// root, as before. Behind sthings-portal (BasePath "/clusterscope") the
+// portal forwards /clusterscope/... unchanged, so everything answers under
+// the prefix and the pages resolve their URLs against <base href> (see
+// writePage); health, metrics and the API stay at the root too, for probes,
+// Prometheus (/api/targets) and in-cluster clients.
+func (s *Server) handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/health", s.handleHealthz)
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/readyz", s.handleReadyz)
 	mux.Handle("/metrics", promhttp.Handler())
@@ -220,12 +241,16 @@ func Start(addr, root string, opts Options) error {
 	mux.HandleFunc("/api/preview/", s.handleAPIpreview)
 	mux.HandleFunc("/preview/", s.handlePreview)
 
-	roots := make([]string, 0, len(cfg.Roots))
-	for _, r := range cfg.Roots {
-		roots = append(roots, r.Path)
+	base := s.opts.BasePath
+	if base == "" {
+		return mux
 	}
-	log.Printf("clusterscope serving on %s  roots=%s", addr, strings.Join(roots, ","))
-	return http.ListenAndServe(addr, mux) //nolint:gosec
+	root := http.NewServeMux()
+	root.Handle(base+"/", http.StripPrefix(base, mux))
+	for _, p := range []string{"/health", "/healthz", "/readyz", "/metrics", "/api/"} {
+		root.Handle(p, mux)
+	}
+	return root
 }
 
 // ── scanning ──────────────────────────────────────────────────────────────────
@@ -571,10 +596,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := render.WriteShell(w); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.writePage(w, r, render.WriteShell)
 }
 
 func (s *Server) handleAPIclusters(w http.ResponseWriter, _ *http.Request) {
@@ -673,10 +695,7 @@ func (s *Server) handleCluster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := render.WriteHTML(w, profile); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.writePage(w, r, func(out io.Writer) error { return render.WriteHTML(out, profile) })
 }
 
 // ── preview scanning ─────────────────────────────────────────────────────────
@@ -930,8 +949,5 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	gd := diff.Diff(baseGraph, headGraph)
 	gd.ClusterName = name
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := render.WriteDiffHTML(w, gd, baseProfile, headProfile); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	s.writePage(w, r, func(out io.Writer) error { return render.WriteDiffHTML(out, gd, baseProfile, headProfile) })
 }

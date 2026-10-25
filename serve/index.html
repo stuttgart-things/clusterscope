@@ -591,6 +591,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#behind-sthings-portal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behind sthings-portal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#taskfile" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -980,6 +991,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#behind-sthings-portal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behind sthings-portal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#taskfile" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1097,8 +1119,8 @@
 <td>On-demand PR diff as JSON</td>
 </tr>
 <tr>
-<td><code>/healthz</code></td>
-<td>Liveness probe</td>
+<td><code>/health</code>, <code>/healthz</code></td>
+<td>Liveness probe (<code>/health</code> is what sthings-portal polls)</td>
 </tr>
 <tr>
 <td><code>/readyz</code></td>
@@ -1114,6 +1136,23 @@
 </tr>
 </tbody>
 </table>
+<h2 id="behind-sthings-portal">Behind sthings-portal</h2>
+<p><code>-base-path /clusterscope</code> (or <code>BASE_PATH</code>, KCL <code>config.basePath</code>) serves
+the dashboard under that prefix. The portal forwards <code>/clusterscope/...</code>
+unchanged, so every page and API answers under the prefix; <code>/health</code>,
+<code>/healthz</code>, <code>/readyz</code>, <code>/metrics</code> and <code>/api/...</code> (Prometheus <code>/api/targets</code>,
+in-cluster clients) also stay at the root. <code>/clusterscope</code> redirects to
+<code>/clusterscope/</code>.</p>
+<p>The server adds <code>&lt;base href="&lt;prefix&gt;/"&gt;</code> to every page it hands out, and
+the pages only use relative URLs (<code>fetch("api/clusters")</code>, <code>clusters/&lt;name&gt;</code>,
+<code>lab</code>, <code>pdf/&lt;name&gt;</code>, …), so the HTML the CLI renders into standalone files
+needs no prefix at all. The PDF export opens the cluster page under the
+prefix as well.</p>
+<p>Inside the portal's frame the dashboard drops its title and footer and shows
+one compact line (the portal names the service). A request through the
+portal (<code>X-Forwarded-Prefix</code>) links the portal's design tokens
+(<code>/static/homerun2-tokens.css</code>), on which the dashboard's colours are built;
+opened on its own it looks as before.</p>
 <h2 id="taskfile">Taskfile</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>task<span class="w"> </span>ui-serve<span class="w"> </span><span class="nv">ROOT</span><span class="o">=</span>./clusters<span class="w"> </span><span class="nv">PORT</span><span class="o">=</span><span class="m">8080</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>task<span class="w"> </span>ui-serve-live<span class="w"> </span><span class="nv">ROOT</span><span class="o">=</span>./clusters<span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span>~/.kube/prod

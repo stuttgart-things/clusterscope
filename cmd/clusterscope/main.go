@@ -52,6 +52,7 @@ func main() {
 	clusterbookURL := flag.String("clusterbook-url", "", "clusterbook REST API whose IP / DNS allocations are matched against the lab's clusters (lab: -lab); more than one via -config (used with -serve)")
 	refreshSeconds := flag.Int("refresh", 30, "live status refresh interval in seconds (used with -live)")
 	previewRoot := flag.String("preview-root", "", "directory containing PR head ref cluster files for diff preview (used with -serve)")
+	basePath := flag.String("base-path", os.Getenv("BASE_PATH"), "serve the dashboard under this prefix behind sthings-portal, e.g. /clusterscope; health, metrics and /api stay at the root too (env BASE_PATH, used with -serve)")
 
 	// Diff mode flags
 	diffMode := flag.Bool("diff", false, "compare two cluster directories and output a diff")
@@ -135,7 +136,13 @@ Examples:
 			}
 			scanCfg = &c
 		}
+		prefix, err := serve.ParseBasePath(*basePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "base-path: %v\n", err)
+			os.Exit(1)
+		}
 		opts := serve.Options{
+			BasePath:       prefix,
 			Live:           *liveMode,
 			Kubeconfig:     *kubeconfig,
 			KubeconfigDir:  *kubeconfigDir,

@@ -33,10 +33,31 @@ Open `http://localhost:8080` in your browser.
 | `/api/targets` | Route URLs in Prometheus `http_sd` format |
 | `/preview/<name>?repo=<url>&pr=<N>` | On-demand PR diff visualization |
 | `/api/preview/<name>?repo=<url>&pr=<N>` | On-demand PR diff as JSON |
-| `/healthz` | Liveness probe |
+| `/health`, `/healthz` | Liveness probe (`/health` is what sthings-portal polls) |
 | `/readyz` | Readiness probe |
 | `/metrics` | Prometheus metrics |
 | `/pdf/<name>` | PDF export via headless Chromium |
+
+## Behind sthings-portal
+
+`-base-path /clusterscope` (or `BASE_PATH`, KCL `config.basePath`) serves
+the dashboard under that prefix. The portal forwards `/clusterscope/...`
+unchanged, so every page and API answers under the prefix; `/health`,
+`/healthz`, `/readyz`, `/metrics` and `/api/...` (Prometheus `/api/targets`,
+in-cluster clients) also stay at the root. `/clusterscope` redirects to
+`/clusterscope/`.
+
+The server adds `<base href="<prefix>/">` to every page it hands out, and
+the pages only use relative URLs (`fetch("api/clusters")`, `clusters/<name>`,
+`lab`, `pdf/<name>`, …), so the HTML the CLI renders into standalone files
+needs no prefix at all. The PDF export opens the cluster page under the
+prefix as well.
+
+Inside the portal's frame the dashboard drops its title and footer and shows
+one compact line (the portal names the service). A request through the
+portal (`X-Forwarded-Prefix`) links the portal's design tokens
+(`/static/homerun2-tokens.css`), on which the dashboard's colours are built;
+opened on its own it looks as before.
 
 ## Taskfile
 

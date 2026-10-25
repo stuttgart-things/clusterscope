@@ -1,5 +1,7 @@
 """Schema definition for clusterscope deployment configuration"""
 
+import regex
+
 schema GitSyncRepo:
     """Configuration for a single git-sync sidecar watching one repository"""
     # Git repository URL to sync
@@ -42,6 +44,10 @@ schema ClusterScope:
 
     # Serve mode port
     port: int = 8080
+    # Prefix of the dashboard behind sthings-portal, e.g. "/clusterscope"
+    # (-base-path). Empty serves it at the root; /health, /healthz, /readyz,
+    # /metrics and /api stay at the root either way.
+    basePath: str = ""
 
     # Directory to scan for GitOps manifests (mapped via git-sync in k8s mode)
     dir: str = "/data"
@@ -111,6 +117,7 @@ schema ClusterScope:
         replicas >= 0, "replicas must be >= 0"
         name != "", "name must not be empty"
         namespace != "", "namespace must not be empty"
+        not basePath or regex.match(basePath, r"^(/[A-Za-z0-9._~-]+)+$"), "basePath must be empty or /segment[/segment...] without a trailing slash"
         tech in ["flux", "argocd"], "tech must be one of: flux, argocd"
         gitSyncAuthType in ["https", "ssh"], "gitSyncAuthType must be 'https' or 'ssh'"
         previewAuthType in ["https", "ssh"], "previewAuthType must be 'https' or 'ssh'"

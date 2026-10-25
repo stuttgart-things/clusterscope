@@ -360,6 +360,7 @@ deployment = {
                             "-tech={}".format(config.tech)
                             "-serve=:{}".format(config.port)
                         ] + (["-live"] if config.liveMode else []) \
+                          + (["-base-path={}".format(config.basePath)] if config.basePath else []) \
                           + (["-preview-root={}/preview".format(config.dir)] if config.previewEnabled else [])
                         ports: [
                             {

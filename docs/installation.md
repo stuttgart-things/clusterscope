@@ -18,7 +18,7 @@ cd clusterscope
 go build -o clusterscope ./cmd/clusterscope
 ```
 
-Requires **Go 1.22+**.
+Requires **Go 1.27+**.
 
 ## Docker / Container
 

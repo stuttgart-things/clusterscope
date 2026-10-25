@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
 
@@ -72,26 +71,21 @@ func (s *Server) handlePDF(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel2 := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel2()
 
-	var pdfBuf []byte
-	if err := chromedp.Run(ctx,
+	err := chromedp.Do(ctx,
 		chromedp.Navigate(targetURL),
-		chromedp.WaitVisible(`svg#graph g`, chromedp.ByQuery),
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			var err error
-			pdfBuf, _, err = page.PrintToPDF().
-				WithPrintBackground(true).
-				WithLandscape(true).
-				WithPaperWidth(11.69).
-				WithPaperHeight(8.27).
-				WithMarginTop(0.4).
-				WithMarginBottom(0.4).
-				WithMarginLeft(0.4).
-				WithMarginRight(0.4).
-				WithScale(0.85).
-				Do(ctx)
-			return err
-		}),
-	); err != nil {
+		chromedp.WaitVisible(chromedp.CSS(`svg#graph g`)),
+	)
+	var pdfBuf []byte
+	if err == nil {
+		pdfBuf, err = chromedp.Run(ctx, chromedp.PrintToPDF(
+			chromedp.PDFPrintBackground(),
+			chromedp.PDFLandscape(),
+			chromedp.PDFPaper(chromedp.PaperSize{Width: 11.69, Height: 8.27}),
+			chromedp.PDFMargin(0.4),
+			chromedp.PDFScale(0.85),
+		))
+	}
+	if err != nil {
 		http.Error(w, fmt.Sprintf("PDF generation failed: %v", err), http.StatusInternalServerError)
 		return
 	}
